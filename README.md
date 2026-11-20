@@ -38,9 +38,16 @@ $$
 ### 3. Neovim TUI & Keyboard Workflow
 
 * **Colorschemes:** Live-switch between `tokyonight-storm`, `catppuccin-mocha`, `gruvbox-material`, `kanagawa-wave`, and `rose-pine`, updating both the UI split borders and the GIS vector canvas.
-* **Buffers & Horizontal Splits:** Keep the interactive GIS map open while inspecting `2: firms_nrt.csv` (tabular telemetry) or `3: rothermel_plume.rs` (Rust struct evaluation preview) in a horizontal split below the canvas.
+* **Buffers & Horizontal Splits:** Keep the interactive GIS map open while inspecting:
+  * `1: [gis] vector_cartography.rs` — Interactive 60fps canvas with lookout towers and hotspot perimeters.
+  * `2: [csv] firms_nrt.csv` — Tabular NASA FIRMS telemetry buffer.
+  * `3: [rust] rothermel_plume.rs` — Rust struct evaluation preview of the active Rothermel spread.
+  * `4: [lookout] firefinder.rs` — Osborne Firefinder station with interactive brass azimuth ring, alidade sightline needle, and dual-bearing cross-triangulation solver.
+  * `5: [docs] help_docs.txt` — Neovim operator cheat sheet and mathematical derivations.
 * **Telescope Fuzzy Finder:** Press `/` or `Ctrl+K` to filter 55+ global thermal anomalies by name, fuel type, satellite sensor, or region with a live physics preview pane.
 * **NASA FIRMS NRT Ingestion & Export:** Paste raw NASA FIRMS CSV or GeoJSON payloads via `:Ingest` and export simulated perimeter and dispersion calculations back to `.csv` or `.geojson`.
+* **Procedural Web Audio Telemetry:** Zero external audio assets. Emulates real-time VHF radio receiver hiss, squelch clicks on buffer switching, and low-frequency thermal combustion rumble scaled to the selected incident's radiated megawatts (FRP).
+* **Tactical Suppression & Rothermel Sandbox:** Real-time right drawer sliders for wind speed, dead fuel moisture, and slope. Deploy tactical VLAT DC-10 Phos-Chek retardant drops, cut bulldozer mineral lines, or ignite spot fires on the canvas.
 
 ## Keybindings & Ex-Commands
 
@@ -50,10 +57,13 @@ $$
 | `/` or `Ctrl+K` | Open Telescope fuzzy finder modal with physics preview |
 | `Space` | Toggle forward dispersion simulation playback (`1x` / `5x`) |
 | `:` | Focus the bottom Ex-command line |
+| `:b1` to `:b5` | Switch active buffer (`cartography`, `csv`, `rust`, `firefinder`, `help`) |
+| `:audio on` / `:audio off` | Toggle procedural VHF radio & thermal rumble sound engine |
+| `:ignite` | Enter spot-fire placement mode (click anywhere on map canvas to ignite) |
+| `:vlat` / `:dozer` | Deploy VLAT Phos-Chek drop or cut bulldozer mineral containment line |
 | `:colorscheme <name>` | Switch theme (`tokyonight`, `catppuccin`, `gruvbox`, `kanagawa`, `rose-pine`) |
 | `:sim play` / `:sim pause` | Start or pause the 24-hour forward spread and smoke plume clock |
 | `:w csv` / `:w geojson` | Export active filtered and simulated telemetry to disk |
-| `:b1` / `:b2` / `:b3` | Switch between GIS viewport, CSV table split, and Rust physics buffer |
 | `:e!` or `:reset` | Reset dataset and simulation clock to initial epoch |
 
 ## Installation

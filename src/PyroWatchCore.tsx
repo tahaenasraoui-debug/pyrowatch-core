@@ -35,7 +35,17 @@ import {
   GitBranch,
   Cpu,
   Palette,
-  Command
+  Command,
+  Volume2,
+  VolumeX,
+  Radio,
+  Navigation,
+  SlidersHorizontal,
+  HelpCircle,
+  Plane,
+  Truck,
+  Target,
+  ShieldCheck
 } from 'lucide-react';
 
 // ============================================================================
@@ -173,7 +183,12 @@ export const NVIM_THEMES: Record<NvimThemeId, NvimThemePalette> = {
   }
 };
 
-export type ActiveBufferTab = 'VIEWPORT_GIS' | 'FIRMS_TABLE_CSV' | 'ROTHERMEL_CORE_RS';
+export type ActiveBufferTab =
+  | 'VIEWPORT_GIS'
+  | 'FIRMS_TABLE_CSV'
+  | 'ROTHERMEL_CORE_RS'
+  | 'FIREFINDER_TUI'
+  | 'HELP_DOCS';
 
 // ============================================================================
 // 1. TYPE DEFINITIONS & INTERFACES
@@ -203,6 +218,46 @@ export interface WindVector {
   bearing_deg: number; // direction wind is blowing TOWARDS (0 = N, 90 = E, 180 = S, 270 = W)
 }
 
+export interface LookoutTower {
+  id: string;
+  name: string;
+  region: string;
+  latitude: number;
+  longitude: number;
+  elevationFt: number;
+  established: number;
+  status: 'ACTIVE_STAFFED' | 'HISTORIC_PRESERVED' | 'AUTOMATED_OPTICAL';
+}
+
+export interface SuppressionTactics {
+  vlatDrops: number;
+  dozerLineKm: number;
+  backburnActive: boolean;
+  retardantApplied: boolean;
+}
+
+export interface PhysicsOverrides {
+  windSpeedMps?: number;
+  windBearingDeg?: number;
+  deadFuelMoisturePct?: number;
+  slopePct?: number;
+}
+
+export interface AlbiniSpottingMetrics {
+  maxSpottingDistanceKm: number;
+  spottingRiskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+  flameHeightM: number;
+}
+
+export interface TriangulationSolution {
+  lat: number;
+  lon: number;
+  distFromAkm: number;
+  distFromBkm: number;
+  errorRadiusKm: number;
+  elevationEstFt: number;
+}
+
 export interface WildfireIncident {
   incident_id: string;
   name: string;
@@ -221,6 +276,8 @@ export interface WildfireIncident {
   ambient_humidity_pct: number; // Relative humidity %
   population_at_risk: number; // Downwind/proximate population within 25km
   wind_vector: WindVector;
+  suppression?: SuppressionTactics;
+  overrides?: PhysicsOverrides;
 }
 
 export interface RothermelMetrics {
@@ -235,6 +292,10 @@ export interface RothermelMetrics {
   simulatedBurnAreaHa: number;  // Projected area after +simHours
   ellipseMajorAxisKm: number;   // Downwind elliptical spread length (km)
   ellipseMinorAxisKm: number;   // Crosswind elliptical spread width (km)
+  spotting: AlbiniSpottingMetrics;
+  isExtinguished: boolean;
+  suppressedByRetardant: boolean;
+  effectiveContainmentPct: number;
 }
 
 export interface PlumeConcentrationPoint {
@@ -381,6 +442,236 @@ const FUEL_MODEL_SPECS: Record<FuelModelType, FuelModelPhysicalSpec> = {
     colorHex: '#84cc16'
   }
 };
+
+export const HISTORIC_LOOKOUT_TOWERS: LookoutTower[] = [
+  {
+    id: 'TWR-TAMALPAIS',
+    name: 'East Peak Fire Lookout',
+    region: 'Mount Tamalpais, Marin CA',
+    latitude: 37.9235,
+    longitude: -122.5965,
+    elevationFt: 2571,
+    established: 1934,
+    status: 'ACTIVE_STAFFED'
+  },
+  {
+    id: 'TWR-BUCK-ROCK',
+    name: 'Buck Rock Lookout',
+    region: 'Sequoia National Forest, CA',
+    latitude: 36.7328,
+    longitude: -118.8617,
+    elevationFt: 8502,
+    established: 1923,
+    status: 'ACTIVE_STAFFED'
+  },
+  {
+    id: 'TWR-BLACK-MTN',
+    name: 'Black Mountain Lookout',
+    region: 'San Diego County, CA',
+    latitude: 33.155,
+    longitude: -116.821,
+    elevationFt: 4048,
+    established: 1926,
+    status: 'ACTIVE_STAFFED'
+  },
+  {
+    id: 'TWR-DEVILS-HEAD',
+    name: 'Devils Head Lookout',
+    region: 'Pike National Forest, Colorado',
+    latitude: 39.2589,
+    longitude: -105.1011,
+    elevationFt: 9748,
+    established: 1912,
+    status: 'HISTORIC_PRESERVED'
+  },
+  {
+    id: 'TWR-SIERRA-BUTTES',
+    name: 'Sierra Buttes Lookout',
+    region: 'Tahoe National Forest, CA',
+    latitude: 39.5936,
+    longitude: -120.6403,
+    elevationFt: 8591,
+    established: 1915,
+    status: 'HISTORIC_PRESERVED'
+  },
+  {
+    id: 'TWR-PIC-DU-MIDI',
+    name: 'Pic du Midi de Bigorre',
+    region: 'Hautes-Pyrénées, France',
+    latitude: 42.9369,
+    longitude: 0.1411,
+    elevationFt: 9439,
+    established: 1882,
+    status: 'AUTOMATED_OPTICAL'
+  }
+];
+
+class LookoutSoundEngine {
+  private ctx: AudioContext | null = null;
+  private noiseNode: AudioBufferSourceNode | null = null;
+  private noiseGain: GainNode | null = null;
+  private rumbleOsc: OscillatorNode | null = null;
+  private rumbleGain: GainNode | null = null;
+  public enabled: boolean = false;
+
+  private initCtx() {
+    if (!this.ctx && typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  public toggle(): boolean {
+    this.enabled = !this.enabled;
+    if (this.enabled) {
+      this.initCtx();
+      this.startAmbient();
+      this.playSquelch();
+    } else {
+      this.stopAmbient();
+    }
+    return this.enabled;
+  }
+
+  public playSquelch() {
+    if (!this.enabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1750, this.ctx.currentTime);
+      filter.Q.setValueAtTime(3.5, this.ctx.currentTime);
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(780, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.07);
+
+      gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.09);
+    } catch {}
+  }
+
+  public playKeyClick() {
+    if (!this.enabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1100, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.025);
+      gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.032);
+    } catch {}
+  }
+
+  public playVlatRadio() {
+    if (!this.enabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(1320, now + 0.08);
+
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.setValueAtTime(0.04, now + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.23);
+    } catch {}
+  }
+
+  public updateThermalPower(frpMw: number) {
+    if (!this.enabled || !this.ctx || !this.rumbleGain || !this.rumbleOsc) return;
+    try {
+      const targetFreq = 42 + Math.min(48, (frpMw / 3200) * 45);
+      const targetGain = 0.007 + Math.min(0.028, (frpMw / 3200) * 0.025);
+      this.rumbleOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.2);
+      this.rumbleGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.2);
+    } catch {}
+  }
+
+  private startAmbient() {
+    if (!this.ctx) return;
+    try {
+      const bufferSize = this.ctx.sampleRate * 2;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let last = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        data[i] = (last + 0.02 * white) / 1.02;
+        last = data[i];
+      }
+
+      this.noiseNode = this.ctx.createBufferSource();
+      this.noiseNode.buffer = buffer;
+      this.noiseNode.loop = true;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1150;
+      filter.Q.value = 1.1;
+
+      this.noiseGain = this.ctx.createGain();
+      this.noiseGain.gain.setValueAtTime(0.012, this.ctx.currentTime);
+
+      this.noiseNode.connect(filter);
+      filter.connect(this.noiseGain);
+      this.noiseGain.connect(this.ctx.destination);
+      this.noiseNode.start();
+
+      this.rumbleOsc = this.ctx.createOscillator();
+      this.rumbleOsc.type = 'triangle';
+      this.rumbleOsc.frequency.setValueAtTime(52, this.ctx.currentTime);
+
+      this.rumbleGain = this.ctx.createGain();
+      this.rumbleGain.gain.setValueAtTime(0.008, this.ctx.currentTime);
+
+      this.rumbleOsc.connect(this.rumbleGain);
+      this.rumbleGain.connect(this.ctx.destination);
+      this.rumbleOsc.start();
+    } catch {}
+  }
+
+  private stopAmbient() {
+    try {
+      this.noiseNode?.stop();
+      this.noiseNode?.disconnect();
+      this.noiseNode = null;
+      this.rumbleOsc?.stop();
+      this.rumbleOsc?.disconnect();
+      this.rumbleOsc = null;
+    } catch {}
+  }
+}
+
+export const lookoutSound = new LookoutSoundEngine();
 
 const THEATER_PRESETS: Record<
   TheaterRegion,
@@ -1526,14 +1817,161 @@ function destinationCoordinate(
  * Slope Factor phi_s, Byram's Fireline Intensity I_B (kW/m), Flame Length L_f (m),
  * and Elliptical Burn Growth over forward simulation time.
  */
+export function computeAzimuthBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const y = Math.sin(deltaLambda) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+  const theta = (Math.atan2(y, x) * 180) / Math.PI;
+  return (theta + 360) % 360;
+}
+
+export function formatBearingDms(bearingDeg: number): string {
+  const norm = (bearingDeg + 360) % 360;
+  const deg = Math.floor(norm);
+  const min = Math.round((norm - deg) * 60);
+  return `${deg.toString().padStart(3, '0')}° ${min.toString().padStart(2, '0')}'`;
+}
+
+export function formatBearingQuadrant(bearingDeg: number): string {
+  const b = (bearingDeg + 360) % 360;
+  if (b >= 0 && b < 90) return `N ${formatBearingDms(b)} E`;
+  if (b >= 90 && b < 180) return `S ${formatBearingDms(180 - b)} E`;
+  if (b >= 180 && b < 270) return `S ${formatBearingDms(b - 180)} W`;
+  return `N ${formatBearingDms(360 - b)} W`;
+}
+
+export function formatBearingMils(bearingDeg: number): number {
+  return Math.round(((bearingDeg + 360) % 360) * (6400 / 360));
+}
+
+export function computeTriangulation(
+  t1: { latitude: number; longitude: number; elevationFt: number },
+  b1Deg: number,
+  t2: { latitude: number; longitude: number; elevationFt: number },
+  b2Deg: number
+): TriangulationSolution | null {
+  const phi1 = (t1.latitude * Math.PI) / 180;
+  const lambda1 = (t1.longitude * Math.PI) / 180;
+  const theta1 = (b1Deg * Math.PI) / 180;
+
+  const phi2 = (t2.latitude * Math.PI) / 180;
+  const lambda2 = (t2.longitude * Math.PI) / 180;
+  const theta2 = (b2Deg * Math.PI) / 180;
+
+  const deltaPhi = phi2 - phi1;
+  const deltaLambda = lambda2 - lambda1;
+
+  const dist12 =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin(deltaPhi / 2) ** 2 +
+          Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2
+      )
+    );
+
+  if (dist12 < 0.0001) return null;
+
+  const thetaA = Math.acos(
+    Math.max(-1, Math.min(1, (Math.sin(phi2) - Math.sin(phi1) * Math.cos(dist12)) /
+      (Math.sin(dist12) * Math.cos(phi1))))
+  );
+  const thetaB = Math.acos(
+    Math.max(-1, Math.min(1, (Math.sin(phi1) - Math.sin(phi2) * Math.cos(dist12)) /
+      (Math.sin(dist12) * Math.cos(phi2))))
+  );
+
+  let theta12 = thetaA;
+  let theta21 = 2 * Math.PI - thetaB;
+  if (Math.sin(deltaLambda) <= 0) {
+    theta12 = 2 * Math.PI - thetaA;
+    theta21 = thetaB;
+  }
+
+  const alpha1 = theta1 - theta12;
+  const alpha2 = theta21 - theta2;
+
+  if (Math.sin(alpha1) === 0 && Math.sin(alpha2) === 0) return null;
+  if (Math.sin(alpha1) * Math.sin(alpha2) < 0) return null;
+
+  const cosA3 = -Math.cos(alpha1) * Math.cos(alpha2) + Math.sin(alpha1) * Math.sin(alpha2) * Math.cos(dist12);
+  const alpha3 = Math.acos(Math.max(-1, Math.min(1, cosA3)));
+
+  const dist13 = Math.atan2(
+    Math.sin(dist12) * Math.sin(alpha1) * Math.sin(alpha2),
+    Math.cos(alpha2) + Math.cos(alpha1) * Math.cos(alpha3)
+  );
+
+  const phi3 = Math.asin(
+    Math.max(-1, Math.min(1, Math.sin(phi1) * Math.cos(dist13) + Math.cos(phi1) * Math.sin(dist13) * Math.cos(theta1)))
+  );
+  const deltaLambda13 = Math.atan2(
+    Math.sin(theta1) * Math.sin(dist13) * Math.cos(phi1),
+    Math.cos(dist13) - Math.sin(phi1) * Math.sin(phi3)
+  );
+  const lambda3 = lambda1 + deltaLambda13;
+
+  const lat = (phi3 * 180) / Math.PI;
+  const lon = ((((lambda3 * 180) / Math.PI) + 540) % 360) - 180;
+
+  const R = 6371.0;
+  const distA = Math.abs(dist13 * R);
+  const distB = haversineDistanceKm(t2.latitude, t2.longitude, lat, lon);
+
+  return {
+    lat,
+    lon,
+    distFromAkm: distA,
+    distFromBkm: distB,
+    errorRadiusKm: Math.max(0.4, Number((distA * 0.015 + distB * 0.015).toFixed(2))),
+    elevationEstFt: Math.round((t1.elevationFt + t2.elevationFt) / 2)
+  };
+}
+
+export function computeAlbiniSpotting(
+  flameLengthM: number,
+  windSpeedMps: number,
+  slopePct: number
+): AlbiniSpottingMetrics {
+  const flameHeightM = Math.max(0.5, flameLengthM * 0.75);
+  const slopeFactor = 1.0 + Math.min(1.2, slopePct / 100);
+  const rawDistKm = 0.00078 * (windSpeedMps * 3.6) * Math.sqrt(flameHeightM) * slopeFactor * 1.35;
+  const maxSpottingDistanceKm = Math.max(0.05, Number(rawDistKm.toFixed(2)));
+
+  let spottingRiskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'LOW';
+  if (maxSpottingDistanceKm > 2.5) spottingRiskLevel = 'CRITICAL';
+  else if (maxSpottingDistanceKm > 1.2) spottingRiskLevel = 'HIGH';
+  else if (maxSpottingDistanceKm > 0.4) spottingRiskLevel = 'MODERATE';
+
+  return {
+    maxSpottingDistanceKm,
+    spottingRiskLevel,
+    flameHeightM
+  };
+}
+
 function computeRothermelSpread(incident: WildfireIncident, simHourOffset: number): RothermelMetrics {
   const spec = FUEL_MODEL_SPECS[incident.fuel_type];
 
-  // Dead fuel moisture fraction estimated from ambient relative humidity & radiative heating
-  const fuelMoistureFraction = Math.max(
-    0.03,
-    Math.min(spec.moistureExtinction * 0.92, (incident.ambient_humidity_pct / 100) * 0.42)
-  );
+  const effWindSpeed = incident.overrides?.windSpeedMps !== undefined
+    ? incident.overrides.windSpeedMps
+    : incident.wind_vector.speed_mps;
+
+  const effHumidity = incident.overrides?.deadFuelMoisturePct !== undefined
+    ? incident.overrides.deadFuelMoisturePct
+    : incident.ambient_humidity_pct;
+
+  const effSlope = incident.overrides?.slopePct !== undefined
+    ? incident.overrides.slopePct
+    : incident.slope_deg;
+
+  const fuelMoistureFraction = incident.overrides?.deadFuelMoisturePct !== undefined
+    ? incident.overrides.deadFuelMoisturePct / 100
+    : Math.max(0.03, Math.min(spec.moistureExtinction * 0.92, (effHumidity / 100) * 0.42));
+
+  const isExtinguished = fuelMoistureFraction >= spec.moistureExtinction;
   const rM = fuelMoistureFraction / spec.moistureExtinction;
 
   // Moisture damping coefficient (eta_M)
@@ -1566,7 +2004,7 @@ function computeRothermelSpread(incident: WildfireIncident, simHourOffset: numbe
     (192.0 + 0.2595 * savImperial);
 
   // Wind factor phi_W (using midflame wind speed ~ 0.45 * 10m wind speed, in ft/min)
-  const midflameWindMps = incident.wind_vector.speed_mps * 0.48;
+  const midflameWindMps = effWindSpeed * 0.48;
   const midflameWindFtMin = midflameWindMps * 196.85;
   const C = 7.47 * Math.exp(-0.133 * Math.pow(savImperial, 0.55));
   const B = 0.02526 * Math.pow(savImperial, 0.54);
@@ -1574,7 +2012,7 @@ function computeRothermelSpread(incident: WildfireIncident, simHourOffset: numbe
   const windFactorPhiW = C * Math.pow(midflameWindFtMin, B) * Math.pow(betaRatio, -E);
 
   // Slope factor phi_S = 5.275 * beta^-0.3 * (tan theta)^2
-  const tanSlope = Math.tan((incident.slope_deg * Math.PI) / 180);
+  const tanSlope = Math.tan((effSlope * Math.PI) / 180);
   const slopeFactorPhiS =
     5.275 * Math.pow(spec.packingRatioBeta, -0.3) * Math.pow(tanSlope, 2);
 
@@ -1623,18 +2061,50 @@ function computeRothermelSpread(incident: WildfireIncident, simHourOffset: numbe
   const simulatedBurnAreaHa =
     Math.PI * (ellipseMajorAxisKm / 2) * (ellipseMinorAxisKm / 2) * 100;
 
+  let finalRosMpm = rateOfSpreadMpm;
+  let finalFlameM = flameLengthM;
+  let suppressedByRetardant = false;
+
+  if (isExtinguished) {
+    finalRosMpm = 0.05;
+    finalFlameM = 0.1;
+  } else {
+    if (incident.suppression?.retardantApplied) {
+      finalRosMpm *= 0.35;
+      finalFlameM *= 0.50;
+      suppressedByRetardant = true;
+    }
+    if (incident.suppression?.backburnActive) {
+      finalRosMpm *= 0.65;
+    }
+  }
+
+  const finalRosKmh = (finalRosMpm * 60) / 1000;
+  const effectiveContainmentPct = Math.min(
+    100,
+    incident.estimated_containment_pct +
+      (incident.suppression?.vlatDrops || 0) * 25 +
+      (incident.suppression?.dozerLineKm || 0) * 12
+  );
+
+  const spotting = computeAlbiniSpotting(finalFlameM, effWindSpeed, effSlope);
+
   return {
-    rateOfSpreadMpm,
-    rateOfSpreadKmh,
+    rateOfSpreadMpm: finalRosMpm,
+    rateOfSpreadKmh: finalRosKmh,
     reactionIntensityKwm2,
     firelineIntensityKwm,
-    flameLengthM,
+    flameLengthM: finalFlameM,
     windFactorPhiW,
     slopeFactorPhiS,
     initialBurnAreaHa,
     simulatedBurnAreaHa,
     ellipseMajorAxisKm,
-    ellipseMinorAxisKm
+    ellipseMinorAxisKm,
+    spotting,
+    isExtinguished,
+    suppressedByRetardant,
+    effectiveContainmentPct
   };
 }
 
@@ -1918,13 +2388,119 @@ function useFireData() {
     setIngestionError(null);
   }, []);
 
+  const addCustomSpotFire = useCallback(
+    (lat: number, lon: number, name?: string, fuelType?: FuelModelType) => {
+      const newInc: WildfireIncident = {
+        incident_id: `IGN-SPOT-${Date.now().toString().slice(-4)}`,
+        name: name || `Custom Spot Ignition (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`,
+        region: 'GLOBAL',
+        latitude: lat,
+        longitude: lon,
+        frp: 850.0,
+        brightness_temp_k: 412.0,
+        confidence_pct: 98,
+        detection_utc: new Date().toISOString(),
+        hours_ago: 0.2,
+        satellite_sensor: 'VIIRS NOAA-20',
+        fuel_type: fuelType || 'Chaparral',
+        estimated_containment_pct: 5,
+        slope_deg: 24,
+        ambient_humidity_pct: 12,
+        population_at_risk: 12500,
+        wind_vector: { speed_mps: 14.5, bearing_deg: 215 },
+        suppression: { vlatDrops: 0, dozerLineKm: 0, backburnActive: false, retardantApplied: false }
+      };
+      setIncidents((prev) => [newInc, ...prev]);
+      return newInc;
+    },
+    []
+  );
+
+  const applyTacticalSuppression = useCallback(
+    (incidentId: string, tactic: 'VLAT' | 'DOZER' | 'BACKBURN') => {
+      setIncidents((prev) =>
+        prev.map((inc) => {
+          if (inc.incident_id !== incidentId) return inc;
+          const current = inc.suppression || {
+            vlatDrops: 0,
+            dozerLineKm: 0,
+            backburnActive: false,
+            retardantApplied: false
+          };
+          if (tactic === 'VLAT') {
+            return {
+              ...inc,
+              suppression: {
+                ...current,
+                vlatDrops: current.vlatDrops + 1,
+                retardantApplied: true
+              }
+            };
+          } else if (tactic === 'DOZER') {
+            return {
+              ...inc,
+              suppression: {
+                ...current,
+                dozerLineKm: current.dozerLineKm + 2.5
+              }
+            };
+          } else {
+            return {
+              ...inc,
+              suppression: {
+                ...current,
+                backburnActive: true
+              }
+            };
+          }
+        })
+      );
+    },
+    []
+  );
+
+  const updateIncidentOverrides = useCallback(
+    (incidentId: string, overrides: Partial<PhysicsOverrides>) => {
+      setIncidents((prev) =>
+        prev.map((inc) => {
+          if (inc.incident_id !== incidentId) return inc;
+          return {
+            ...inc,
+            overrides: {
+              ...inc.overrides,
+              ...overrides
+            }
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const resetIncidentOverrides = useCallback((incidentId: string) => {
+    setIncidents((prev) =>
+      prev.map((inc) => {
+        if (inc.incident_id !== incidentId) return inc;
+        return {
+          ...inc,
+          overrides: undefined,
+          suppression: undefined
+        };
+      })
+    );
+  }, []);
+
   return {
     incidents,
     ingestPayloadAsync,
     resetDataset,
     lastIngestedCount,
     ingestionError,
-    setIngestionError
+    setIngestionError,
+    addCustomSpotFire,
+    applyTacticalSuppression,
+    updateIncidentOverrides,
+    resetIncidentOverrides
   };
 }
 
@@ -2678,8 +3254,27 @@ export default function App() {
     resetDataset,
     lastIngestedCount,
     ingestionError,
-    setIngestionError
+    setIngestionError,
+    addCustomSpotFire,
+    applyTacticalSuppression,
+    updateIncidentOverrides,
+    resetIncidentOverrides
   } = useFireData();
+
+  // Audio Telemetry Synthesizer State
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
+
+  // Click-to-Ignite Spot Fire Tool State
+  const [isIgniteMode, setIsIgniteMode] = useState<boolean>(false);
+
+  // Osborne Firefinder Lookout Tower State
+  const [primaryTowerId, setPrimaryTowerId] = useState<string>('TWR-TAMALPAIS');
+  const [secondaryTowerId, setSecondaryTowerId] = useState<string>('TWR-BUCK-ROCK');
+  const [manualAzimuthDeg, setManualAzimuthDeg] = useState<number>(142.5);
+  const [isManualAim, setIsManualAim] = useState<boolean>(false);
+
+  // Sensitivity Sandbox Drawer Toggle
+  const [sandboxExpanded, setSandboxExpanded] = useState<boolean>(false);
 
   // 2. Multi-Parametric Filter State
   const [filters, setFilters] = useState<GISFilterState>({
@@ -2760,6 +3355,47 @@ export default function App() {
       null
     );
   }, [simulatedIncidents, selectedIncidentId]);
+
+  // Osborne Lookout Towers & Triangulation State
+  const primaryTower = useMemo(
+    () => HISTORIC_LOOKOUT_TOWERS.find((t) => t.id === primaryTowerId) || HISTORIC_LOOKOUT_TOWERS[0],
+    [primaryTowerId]
+  );
+  const secondaryTower = useMemo(
+    () => HISTORIC_LOOKOUT_TOWERS.find((t) => t.id === secondaryTowerId) || HISTORIC_LOOKOUT_TOWERS[1],
+    [secondaryTowerId]
+  );
+
+  const primaryBearingToTarget = useMemo(() => {
+    if (!selectedSim) return manualAzimuthDeg;
+    return computeAzimuthBearing(
+      primaryTower.latitude,
+      primaryTower.longitude,
+      selectedSim.incident.latitude,
+      selectedSim.incident.longitude
+    );
+  }, [primaryTower, selectedSim, manualAzimuthDeg]);
+
+  const activePrimaryBearing = isManualAim ? manualAzimuthDeg : primaryBearingToTarget;
+
+  const secondaryBearingToTarget = useMemo(() => {
+    if (!selectedSim) return (activePrimaryBearing + 45) % 360;
+    return computeAzimuthBearing(
+      secondaryTower.latitude,
+      secondaryTower.longitude,
+      selectedSim.incident.latitude,
+      selectedSim.incident.longitude
+    );
+  }, [secondaryTower, selectedSim, activePrimaryBearing]);
+
+  const triangulationSolution = useMemo(() => {
+    return computeTriangulation(
+      primaryTower,
+      activePrimaryBearing,
+      secondaryTower,
+      secondaryBearingToTarget
+    );
+  }, [primaryTower, activePrimaryBearing, secondaryTower, secondaryBearingToTarget]);
 
   // Telescope Filtered Results
   const telescopeResults = useMemo(() => {
@@ -3072,6 +3708,37 @@ export default function App() {
       setActiveBuffer('FIRMS_TABLE_CSV');
     } else if (raw === 'b3' || raw === 'core') {
       setActiveBuffer('ROTHERMEL_CORE_RS');
+    } else if (raw === 'b4' || raw === 'firefinder' || raw === 'osborne') {
+      setActiveBuffer('FIREFINDER_TUI');
+      setVimStatusMsg(':buffer 4 (firefinder.rs) [Osborne Lookout Station]');
+    } else if (raw === 'b5' || raw === 'help' || raw === 'h') {
+      setActiveBuffer('HELP_DOCS');
+      setVimStatusMsg(':help pyrowatch [Operator Manual & Equations]');
+    } else if (raw === 'audio on') {
+      lookoutSound.enabled = false;
+      const on = lookoutSound.toggle();
+      setAudioEnabled(on);
+      setVimStatusMsg(':audio on [VHF Radio & Thermal Rumble]');
+    } else if (raw === 'audio off' || raw === 'mute') {
+      lookoutSound.enabled = true;
+      lookoutSound.toggle();
+      setAudioEnabled(false);
+      setVimStatusMsg(':audio off [Muted]');
+    } else if (raw === 'ignite') {
+      setIsIgniteMode((p) => !p);
+      setVimStatusMsg(':ignite -> Click anywhere on the map canvas to deploy a spot fire');
+    } else if (raw === 'vlat' || raw === 'retardant') {
+      if (selectedSim) {
+        applyTacticalSuppression(selectedSim.incident.incident_id, 'VLAT');
+        lookoutSound.playVlatRadio();
+        setVimStatusMsg(`:vlat deployed on ${selectedSim.incident.incident_id}`);
+      }
+    } else if (raw === 'dozer') {
+      if (selectedSim) {
+        applyTacticalSuppression(selectedSim.incident.incident_id, 'DOZER');
+        lookoutSound.playSquelch();
+        setVimStatusMsg(`:dozer containment line cut on ${selectedSim.incident.incident_id}`);
+      }
     } else {
       setVimStatusMsg(`E492: Not an editor command: ${raw} (try :colorscheme catppuccin, :telescope, :sim play, :w csv)`);
     }
@@ -3240,6 +3907,88 @@ export default function App() {
         }
       }
       ctx.restore();
+
+      // 3C. Historic Osborne Lookout Towers
+      for (const twr of HISTORIC_LOOKOUT_TOWERS) {
+        const tPos = projectLatLonToXY(twr.latitude, twr.longitude, W, H);
+        if (tPos.x < -80 || tPos.x > W + 80 || tPos.y < -80 || tPos.y > H + 80) continue;
+
+        const isPrim = twr.id === primaryTowerId;
+        const isSec = twr.id === secondaryTowerId;
+
+        ctx.save();
+        ctx.fillStyle = isPrim ? theme.magenta : isSec ? theme.cyan : theme.green;
+        ctx.strokeStyle = theme.crust;
+        ctx.lineWidth = 1.5;
+
+        const s = isPrim || isSec ? 6.5 : 4.5;
+        ctx.beginPath();
+        ctx.moveTo(tPos.x, tPos.y - s);
+        ctx.lineTo(tPos.x + s, tPos.y);
+        ctx.lineTo(tPos.x, tPos.y + s);
+        ctx.lineTo(tPos.x - s, tPos.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        if (camera.zoom >= 1.6 || isPrim || isSec) {
+          ctx.font = 'bold 9px monospace';
+          ctx.fillStyle = isPrim ? theme.magenta : isSec ? theme.cyan : theme.fg;
+          ctx.fillText(`◈ ${twr.name.split(' ')[0]} [${twr.elevationFt}ft]`, tPos.x + 8, tPos.y + 3);
+        }
+        ctx.restore();
+      }
+
+      // 3D. Active Osborne Sightlines & Cross-Bearing Triangulation
+      if (activeBuffer === 'FIREFINDER_TUI' || camera.zoom >= 1.4) {
+        const pPos = projectLatLonToXY(primaryTower.latitude, primaryTower.longitude, W, H);
+        const tipA = destinationCoordinate(primaryTower.latitude, primaryTower.longitude, activePrimaryBearing, 280);
+        const pTipA = projectLatLonToXY(tipA.lat, tipA.lon, W, H);
+
+        ctx.save();
+        ctx.strokeStyle = theme.magenta;
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pPos.x, pPos.y);
+        ctx.lineTo(pTipA.x, pTipA.y);
+        ctx.stroke();
+
+        const sPos = projectLatLonToXY(secondaryTower.latitude, secondaryTower.longitude, W, H);
+        const tipB = destinationCoordinate(secondaryTower.latitude, secondaryTower.longitude, secondaryBearingToTarget, 280);
+        const pTipB = projectLatLonToXY(tipB.lat, tipB.lon, W, H);
+
+        ctx.strokeStyle = theme.cyan;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(sPos.x, sPos.y);
+        ctx.lineTo(pTipB.x, pTipB.y);
+        ctx.stroke();
+
+        if (triangulationSolution && triangulationSolution.distFromAkm > 1 && triangulationSolution.distFromAkm < 400) {
+          const fixPos = projectLatLonToXY(triangulationSolution.lat, triangulationSolution.lon, W, H);
+          ctx.setLineDash([]);
+          ctx.strokeStyle = theme.yellow;
+          ctx.lineWidth = 2.0;
+
+          const rFix = 12 + Math.sin(pulsePhase * 2) * 3;
+          ctx.beginPath();
+          ctx.arc(fixPos.x, fixPos.y, rFix, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(fixPos.x - rFix - 4, fixPos.y);
+          ctx.lineTo(fixPos.x + rFix + 4, fixPos.y);
+          ctx.moveTo(fixPos.x, fixPos.y - rFix - 4);
+          ctx.lineTo(fixPos.x, fixPos.y + rFix + 4);
+          ctx.stroke();
+
+          ctx.fillStyle = theme.yellow;
+          ctx.font = 'bold 9px monospace';
+          ctx.fillText(`▲ TRIANGULATED FIX ±${triangulationSolution.errorRadiusKm}km`, fixPos.x + 16, fixPos.y - 4);
+        }
+        ctx.restore();
+      }
 
       // 4. Thermal Density Heatmap Layer
       if (layers.thermalHeatmap) {
@@ -3547,6 +4296,16 @@ export default function App() {
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
 
+      if (isIgniteMode) {
+        const coords = unprojectXYToLatLon(clickX, clickY, rect.width, rect.height);
+        const newInc = addCustomSpotFire(coords.lat, coords.lon);
+        setSelectedIncidentId(newInc.incident_id);
+        setIsIgniteMode(false);
+        lookoutSound.playSquelch();
+        setVimStatusMsg(`:ignite -> Deployed spot fire at ${coords.lat.toFixed(2)}°, ${coords.lon.toFixed(2)}°`);
+        return;
+      }
+
       let closestSim: IncidentPhysicsSimulation | null = null;
       let minDistPx = 22;
 
@@ -3663,6 +4422,20 @@ export default function App() {
               name: 'rothermel_plume.rs',
               mod: '[RO]',
               icon: <Code2 className="w-3.5 h-3.5" style={{ color: theme.orange }} />
+            },
+            {
+              id: 'FIREFINDER_TUI' as ActiveBufferTab,
+              num: 4,
+              name: 'firefinder.rs',
+              mod: '[OSBORNE]',
+              icon: <Radio className="w-3.5 h-3.5" style={{ color: theme.magenta }} />
+            },
+            {
+              id: 'HELP_DOCS' as ActiveBufferTab,
+              num: 5,
+              name: 'help_docs.txt',
+              mod: '[HELP]',
+              icon: <HelpCircle className="w-3.5 h-3.5" style={{ color: theme.yellow }} />
             }
           ].map((buf) => {
             const isAct = activeBuffer === buf.id;
@@ -3726,6 +4499,44 @@ export default function App() {
 
         {/* Right: Telescope Trigger, Ingest & Export Commands */}
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              const newState = lookoutSound.toggle();
+              setAudioEnabled(newState);
+              setVimStatusMsg(newState ? ':audio on [VHF Radio & Thermal Rumble Active]' : ':audio off [Muted]');
+            }}
+            className="px-2 py-0.5 rounded-sm border text-[11px] flex items-center gap-1.5 transition"
+            style={{
+              backgroundColor: audioEnabled ? `${theme.green}25` : theme.mantle,
+              borderColor: audioEnabled ? theme.green : theme.border,
+              color: audioEnabled ? theme.green : theme.comment
+            }}
+            title="Toggle Lookout Radio & Combustion Audio Ambiance"
+          >
+            {audioEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            <span className="hidden xl:inline">{audioEnabled ? 'radio_on' : 'radio_off'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setIsIgniteMode((p) => !p);
+              setVimStatusMsg(
+                !isIgniteMode
+                  ? ':ignite active -> Click anywhere on GIS canvas to deploy spot fire'
+                  : ':ignite cancelled'
+              );
+            }}
+            className="px-2 py-0.5 rounded-sm border text-[11px] flex items-center gap-1.5 transition"
+            style={{
+              backgroundColor: isIgniteMode ? `${theme.red}30` : theme.mantle,
+              borderColor: isIgniteMode ? theme.red : theme.border,
+              color: isIgniteMode ? theme.red : theme.subtext
+            }}
+            title="Ignite new custom wildfire anomaly on canvas"
+          >
+            <Flame className="w-3 h-3" style={{ color: isIgniteMode ? theme.red : theme.orange }} />
+            <span className="hidden sm:inline">{isIgniteMode ? 'click_map!' : ':ignite'}</span>
+          </button>
           <button
             onClick={() => {
               setIsTelescopeOpen(true);
@@ -4141,7 +4952,11 @@ export default function App() {
               title={
                 activeBuffer === 'FIRMS_TABLE_CSV'
                   ? `[split] buffer://firms_nrt_telemetry.csv [${simulatedIncidents.length} rows]`
-                  : `[split] buffer://src/physics/rothermel_gaussian_core.rs [RO]`
+                  : activeBuffer === 'ROTHERMEL_CORE_RS'
+                  ? `[split] buffer://src/physics/rothermel_gaussian_core.rs [RO]`
+                  : activeBuffer === 'FIREFINDER_TUI'
+                  ? `[split] buffer://osborne_firefinder_lookout.rs [${primaryTower.name} ◈ ${secondaryTower.name}]`
+                  : `[split] buffer://doc/pyrowatch_reference.txt [HELP]`
               }
               rightBadge=":q to close split"
               theme={theme}
@@ -4225,6 +5040,352 @@ export default function App() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {activeBuffer === 'FIREFINDER_TUI' && (
+                  <div className="p-3 text-xs space-y-3 font-mono">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                      <div
+                        className="md:col-span-5 p-3 rounded-sm border flex flex-col items-center justify-center space-y-2"
+                        style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
+                      >
+                        <div className="flex items-center justify-between w-full text-[11px]">
+                          <span style={{ color: theme.magenta }} className="font-bold">
+                            OSBORNE AZIMUTH RING (0° - 360°)
+                          </span>
+                          <span style={{ color: theme.yellow }} className="font-bold">
+                            {formatBearingDms(activePrimaryBearing)}
+                          </span>
+                        </div>
+
+                        <div className="relative w-44 h-44 my-1 select-none flex items-center justify-center">
+                          <svg viewBox="0 0 200 200" className="w-full h-full">
+                            <circle cx="100" cy="100" r="94" fill={theme.crust} stroke={theme.border} strokeWidth="3" />
+                            <circle cx="100" cy="100" r="88" fill="none" stroke={`${theme.magenta}40`} strokeWidth="1.2" />
+
+                            {Array.from({ length: 24 }).map((_, i) => {
+                              const angle = (i * 15 * Math.PI) / 180;
+                              const isMajor = i % 2 === 0;
+                              const r1 = isMajor ? 76 : 82;
+                              const r2 = 88;
+                              const x1 = 100 + r1 * Math.sin(angle);
+                              const y1 = 100 - r1 * Math.cos(angle);
+                              const x2 = 100 + r2 * Math.sin(angle);
+                              const y2 = 100 - r2 * Math.cos(angle);
+                              return (
+                                <line
+                                  key={i}
+                                  x1={x1}
+                                  y1={y1}
+                                  x2={x2}
+                                  y2={y2}
+                                  stroke={isMajor ? theme.yellow : theme.comment}
+                                  strokeWidth={isMajor ? 1.5 : 0.8}
+                                />
+                              );
+                            })}
+
+                            <text x="100" y="24" fill={theme.red} fontSize="10" fontWeight="bold" textAnchor="middle">N</text>
+                            <text x="178" y="104" fill={theme.fg} fontSize="9" fontWeight="bold" textAnchor="middle">E</text>
+                            <text x="100" y="184" fill={theme.fg} fontSize="9" fontWeight="bold" textAnchor="middle">S</text>
+                            <text x="22" y="104" fill={theme.fg} fontSize="9" fontWeight="bold" textAnchor="middle">W</text>
+
+                            <g transform={`rotate(${activePrimaryBearing}, 100, 100)`}>
+                              <line x1="100" y1="18" x2="100" y2="182" stroke={theme.magenta} strokeWidth="2.2" />
+                              <polygon points="100,10 95,24 105,24" fill={theme.magenta} />
+                              <circle cx="100" cy="100" r="5" fill={theme.yellow} />
+                            </g>
+                          </svg>
+                        </div>
+
+                        <div className="w-full space-y-1 text-[10px]">
+                          <div className="flex items-center justify-between">
+                            <span style={{ color: theme.subtext }}>Manual Alidade Azimuth:</span>
+                            <span style={{ color: theme.cyan }} className="font-bold">
+                              {manualAzimuthDeg.toFixed(1)}°
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="359.9"
+                            step="0.5"
+                            value={manualAzimuthDeg}
+                            onChange={(e) => {
+                              setManualAzimuthDeg(parseFloat(e.target.value));
+                              setIsManualAim(true);
+                              lookoutSound.playKeyClick();
+                            }}
+                            className="w-full accent-fuchsia-500 cursor-pointer"
+                          />
+                          <div className="flex items-center justify-between pt-1">
+                            <button
+                              onClick={() => {
+                                setIsManualAim(false);
+                                setVimStatusMsg(':firefinder sight locked onto selected incident');
+                                lookoutSound.playSquelch();
+                              }}
+                              className="px-2 py-0.5 rounded-sm border"
+                              style={{
+                                backgroundColor: !isManualAim ? `${theme.magenta}25` : theme.surface,
+                                borderColor: !isManualAim ? theme.magenta : theme.border,
+                                color: theme.fg
+                              }}
+                            >
+                              Lock to Incident
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsManualAim(true);
+                                lookoutSound.playKeyClick();
+                              }}
+                              className="px-2 py-0.5 rounded-sm border"
+                              style={{
+                                backgroundColor: isManualAim ? `${theme.cyan}25` : theme.surface,
+                                borderColor: isManualAim ? theme.cyan : theme.border,
+                                color: theme.fg
+                              }}
+                            >
+                              Manual Sweep
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className="md:col-span-4 p-3 rounded-sm border space-y-2.5"
+                        style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
+                      >
+                        <div style={{ color: theme.cyan }} className="font-bold text-[11px]">
+                          SIGHTING TELEMETRY (TOWER A ➜ TARGET)
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: theme.comment }}>
+                            Primary Lookout Tower (A):
+                          </label>
+                          <select
+                            value={primaryTowerId}
+                            onChange={(e) => {
+                              setPrimaryTowerId(e.target.value);
+                              lookoutSound.playSquelch();
+                            }}
+                            className="w-full text-xs p-1 rounded-sm border bg-transparent font-mono focus:outline-none"
+                            style={{ borderColor: theme.border, color: theme.fg, backgroundColor: theme.bg }}
+                          >
+                            {HISTORIC_LOOKOUT_TOWERS.map((t) => (
+                              <option key={t.id} value={t.id} style={{ backgroundColor: theme.crust }}>
+                                {t.name} ({t.elevationFt} ft)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="p-2 rounded-sm border space-y-1 text-[11px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                          <div className="flex justify-between">
+                            <span style={{ color: theme.comment }}>Azimuth Bearing:</span>
+                            <span style={{ color: theme.yellow }} className="font-bold">
+                              {formatBearingDms(activePrimaryBearing)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span style={{ color: theme.comment }}>Mariner Quadrant:</span>
+                            <span style={{ color: theme.green }} className="font-bold">
+                              {formatBearingQuadrant(activePrimaryBearing)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span style={{ color: theme.comment }}>Military Mils:</span>
+                            <span style={{ color: theme.cyan }} className="font-bold">
+                              {formatBearingMils(activePrimaryBearing)} mils
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span style={{ color: theme.comment }}>Back-Azimuth:</span>
+                            <span style={{ color: theme.subtext }}>
+                              {formatBearingDms((activePrimaryBearing + 180) % 360)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 pt-1">
+                          <label className="text-[10px]" style={{ color: theme.comment }}>
+                            Secondary Triangulation Lookout (B):
+                          </label>
+                          <select
+                            value={secondaryTowerId}
+                            onChange={(e) => {
+                              setSecondaryTowerId(e.target.value);
+                              lookoutSound.playSquelch();
+                            }}
+                            className="w-full text-xs p-1 rounded-sm border bg-transparent font-mono focus:outline-none"
+                            style={{ borderColor: theme.border, color: theme.fg, backgroundColor: theme.bg }}
+                          >
+                            {HISTORIC_LOOKOUT_TOWERS.map((t) => (
+                              <option key={t.id} value={t.id} style={{ backgroundColor: theme.crust }}>
+                                {t.name} ({t.elevationFt} ft)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex justify-between text-[11px] p-1.5 rounded-sm border" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                          <span style={{ color: theme.comment }}>Tower B Bearing:</span>
+                          <span style={{ color: theme.cyan }} className="font-bold">
+                            {formatBearingDms(secondaryBearingToTarget)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div
+                        className="md:col-span-3 p-3 rounded-sm border flex flex-col justify-between space-y-2"
+                        style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
+                      >
+                        <div className="space-y-2">
+                          <div style={{ color: theme.yellow }} className="font-bold text-[11px]">
+                            ▲ CROSS-BEARING TRIANGULATION
+                          </div>
+
+                          {triangulationSolution ? (
+                            <div className="space-y-1.5 text-[11px]">
+                              <div className="p-2 rounded-sm border space-y-1" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                                <div style={{ color: theme.comment }} className="text-[10px]">
+                                  Triangulated Ground Fix:
+                                </div>
+                                <div style={{ color: theme.orange }} className="font-bold">
+                                  {triangulationSolution.lat.toFixed(3)}° N, {triangulationSolution.lon.toFixed(3)}° W
+                                </div>
+                                <div style={{ color: theme.green }} className="text-[10px]">
+                                  Confidence Radius: ±{triangulationSolution.errorRadiusKm} km
+                                </div>
+                              </div>
+
+                              <div className="flex justify-between text-[10px]">
+                                <span style={{ color: theme.comment }}>Dist from Tower A:</span>
+                                <span style={{ color: theme.magenta }} className="font-bold">
+                                  {triangulationSolution.distFromAkm.toFixed(1)} km
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[10px]">
+                                <span style={{ color: theme.comment }}>Dist from Tower B:</span>
+                                <span style={{ color: theme.cyan }} className="font-bold">
+                                  {triangulationSolution.distFromBkm.toFixed(1)} km
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-3 text-[10px] text-center italic" style={{ color: theme.comment }}>
+                              Sightlines are parallel or diverging. Adjust tower selection or bearings to achieve cross-bearing intersection.
+                            </div>
+                          )}
+                        </div>
+
+                        {triangulationSolution && (
+                          <button
+                            onClick={() => {
+                              setCamera({
+                                centerLat: triangulationSolution.lat,
+                                centerLon: triangulationSolution.lon,
+                                zoom: 4.8
+                              });
+                              lookoutSound.playSquelch();
+                              setVimStatusMsg(`:project -> Centered on triangulated smoke column`);
+                            }}
+                            className="w-full py-1.5 rounded-sm font-bold text-xs flex items-center justify-center gap-1.5 shadow-md"
+                            style={{ backgroundColor: theme.yellow, color: theme.crust }}
+                          >
+                            <Crosshair className="w-3.5 h-3.5" />
+                            <span>:FlyToTriangulation</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeBuffer === 'HELP_DOCS' && (
+                  <div className="p-4 text-xs font-mono space-y-4" style={{ color: theme.fg }}>
+                    <div className="p-3 rounded-sm border" style={{ backgroundColor: theme.mantle, borderColor: theme.border }}>
+                      <h2 className="text-sm font-bold mb-1" style={{ color: theme.yellow }}>
+                        PYROWATCH-CORE // OPERATOR CHEAT SHEET &amp; REFERENCE MANUAL
+                      </h2>
+                      <p style={{ color: theme.subtext }}>
+                        Digital Fire Lookout &amp; Orbital Wildfire Telemetry Terminal styled as an authentic Neovim workspace.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-3 rounded-sm border space-y-2" style={{ backgroundColor: theme.mantle, borderColor: theme.border }}>
+                        <div style={{ color: theme.cyan }} className="font-bold text-xs">
+                          KEYBOARD WORKFLOW &amp; SHORTCUTS
+                        </div>
+                        <table className="w-full text-left text-[11px]">
+                          <tbody>
+                            <tr className="border-b" style={{ borderColor: `${theme.border}40` }}>
+                              <td className="py-1" style={{ color: theme.yellow }}>j / k</td>
+                              <td style={{ color: theme.subtext }}>Cycle next / previous thermal anomaly</td>
+                            </tr>
+                            <tr className="border-b" style={{ borderColor: `${theme.border}40` }}>
+                              <td className="py-1" style={{ color: theme.yellow }}>/ or Ctrl+K</td>
+                              <td style={{ color: theme.subtext }}>Open Telescope fuzzy finder modal</td>
+                            </tr>
+                            <tr className="border-b" style={{ borderColor: `${theme.border}40` }}>
+                              <td className="py-1" style={{ color: theme.yellow }}>Space</td>
+                              <td style={{ color: theme.subtext }}>Toggle forward simulation clock (1x / 5x)</td>
+                            </tr>
+                            <tr className="border-b" style={{ borderColor: `${theme.border}40` }}>
+                              <td className="py-1" style={{ color: theme.yellow }}>:b1 - :b5</td>
+                              <td style={{ color: theme.subtext }}>Switch buffer (1:GIS, 2:CSV, 3:Rust, 4:Firefinder, 5:Help)</td>
+                            </tr>
+                            <tr className="border-b" style={{ borderColor: `${theme.border}40` }}>
+                              <td className="py-1" style={{ color: theme.yellow }}>:audio on/off</td>
+                              <td style={{ color: theme.subtext }}>Toggle VHF radio &amp; thermal sound engine</td>
+                            </tr>
+                            <tr className="border-b" style={{ borderColor: `${theme.border}40` }}>
+                              <td className="py-1" style={{ color: theme.yellow }}>:ignite</td>
+                              <td style={{ color: theme.subtext }}>Click anywhere on map to deploy custom spot fire</td>
+                            </tr>
+                            <tr>
+                              <td className="py-1" style={{ color: theme.yellow }}>:vlat / :dozer</td>
+                              <td style={{ color: theme.subtext }}>Dispatch DC-10 retardant drop or bulldozer break</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="p-3 rounded-sm border space-y-2" style={{ backgroundColor: theme.mantle, borderColor: theme.border }}>
+                        <div style={{ color: theme.orange }} className="font-bold text-xs">
+                          PHYSICAL &amp; DISPERSION FORMULATIONS
+                        </div>
+                        <div className="space-y-1.5 text-[11px]" style={{ color: theme.subtext }}>
+                          <div>
+                            <strong style={{ color: theme.magenta }}>Rothermel (1972) Surface Spread:</strong>
+                            <div className="p-1 rounded font-mono text-[10px]" style={{ backgroundColor: theme.bg }}>
+                              R = [I_R * xi * (1 + phi_w + phi_s)] / (rho_b * epsilon * Q_ig)
+                            </div>
+                          </div>
+                          <div>
+                            <strong style={{ color: theme.magenta }}>Byram (1959) Fireline Intensity:</strong>
+                            <div className="p-1 rounded font-mono text-[10px]" style={{ backgroundColor: theme.bg }}>
+                              I_B = H * w * R  ==&gt;  L_f = 0.0775 * (I_B)^0.46 (m)
+                            </div>
+                          </div>
+                          <div>
+                            <strong style={{ color: theme.magenta }}>Albini (1979) Firebrand Spotting:</strong>
+                            <div className="p-1 rounded font-mono text-[10px]" style={{ backgroundColor: theme.bg }}>
+                              D_spot = 0.00078 * U_canopy * sqrt(H_flame) * (1 + Slope/100)
+                            </div>
+                          </div>
+                          <div>
+                            <strong style={{ color: theme.magenta }}>Wooster (2005) Biomass Combustion:</strong>
+                            <div className="p-1 rounded font-mono text-[10px]" style={{ backgroundColor: theme.bg }}>
+                              Biomass (kg/s) = FRP (MW) * 0.368 kg/MJ
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -4424,6 +5585,177 @@ export default function App() {
                         {selectedSim.rothermel.ellipseMajorAxisKm.toFixed(1)}×
                         {selectedSim.rothermel.ellipseMinorAxisKm.toFixed(1)} km
                       </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className="p-2 rounded-sm border text-[11px] flex items-center justify-between"
+                    style={{
+                      backgroundColor: `${theme.orange}15`,
+                      borderColor: theme.orange,
+                      color: theme.orange
+                    }}
+                  >
+                    <span>Albini Spotting Radius:</span>
+                    <span className="font-bold">
+                      {selectedSim.rothermel.spotting.maxSpottingDistanceKm} km ({selectedSim.rothermel.spotting.spottingRiskLevel})
+                    </span>
+                  </div>
+
+                  {selectedSim.rothermel.isExtinguished && (
+                    <div
+                      className="p-2 rounded-sm border text-[11px] font-bold text-center"
+                      style={{ backgroundColor: `${theme.cyan}20`, borderColor: theme.cyan, color: theme.cyan }}
+                    >
+                      [DORMANT: Dead Fuel Moisture Exceeds Extinction Threshold]
+                    </div>
+                  )}
+
+                  {selectedSim.rothermel.suppressedByRetardant && (
+                    <div
+                      className="p-2 rounded-sm border text-[11px] font-bold text-center"
+                      style={{ backgroundColor: `${theme.red}20`, borderColor: theme.red, color: theme.red }}
+                    >
+                      [PHOS-CHEK APPLIED: Spread Rate Suppressed by 65%]
+                    </div>
+                  )}
+                </div>
+
+                {/* Tactical Incident Suppression Command Card */}
+                <div
+                  className="p-2.5 rounded-sm border space-y-2"
+                  style={{ backgroundColor: theme.bg, borderColor: theme.border }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: theme.red }} className="font-bold flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Tactical Suppression Dispatch</span>
+                    </span>
+                    <span className="text-[10px] font-bold" style={{ color: theme.green }}>
+                      Containment: {selectedSim.rothermel.effectiveContainmentPct}%
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <button
+                      onClick={() => {
+                        applyTacticalSuppression(selectedSim.incident.incident_id, 'VLAT');
+                        lookoutSound.playVlatRadio();
+                        setVimStatusMsg(`:vlat -> Deployed DC-10 Phos-Chek retardant drop on ${selectedSim.incident.incident_id}`);
+                      }}
+                      className="p-1.5 rounded-sm border font-bold flex items-center justify-center gap-1 hover:opacity-80"
+                      style={{ backgroundColor: `${theme.red}25`, borderColor: theme.red, color: theme.red }}
+                    >
+                      <Plane className="w-3 h-3" />
+                      <span>Deploy VLAT Drop</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        applyTacticalSuppression(selectedSim.incident.incident_id, 'DOZER');
+                        lookoutSound.playSquelch();
+                        setVimStatusMsg(`:dozer -> Bulldozer crew cutting mineral soil line on ${selectedSim.incident.incident_id}`);
+                      }}
+                      className="p-1.5 rounded-sm border font-bold flex items-center justify-center gap-1 hover:opacity-80"
+                      style={{ backgroundColor: `${theme.yellow}25`, borderColor: theme.yellow, color: theme.yellow }}
+                    >
+                      <Truck className="w-3 h-3" />
+                      <span>Cut Dozer Line</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Interactive Rothermel Sensitivity Sandbox Sliders */}
+                <div
+                  className="p-2.5 rounded-sm border space-y-2"
+                  style={{ backgroundColor: theme.bg, borderColor: theme.border }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: theme.yellow }} className="font-bold flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <span>Rothermel What-If Sandbox</span>
+                    </span>
+                    <button
+                      onClick={() => {
+                        resetIncidentOverrides(selectedSim.incident.incident_id);
+                        lookoutSound.playKeyClick();
+                        setVimStatusMsg(`:reset overrides on ${selectedSim.incident.incident_id}`);
+                      }}
+                      className="text-[10px] underline hover:opacity-80"
+                      style={{ color: theme.comment }}
+                    >
+                      reset_baseline
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 text-[10px]">
+                    <div>
+                      <div className="flex justify-between">
+                        <span style={{ color: theme.subtext }}>Wind Speed (10m):</span>
+                        <span style={{ color: theme.cyan }} className="font-bold">
+                          {(selectedSim.incident.overrides?.windSpeedMps ?? selectedSim.incident.wind_vector.speed_mps).toFixed(1)} m/s ({((selectedSim.incident.overrides?.windSpeedMps ?? selectedSim.incident.wind_vector.speed_mps) * 2.237).toFixed(0)} mph)
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="35"
+                        step="0.5"
+                        value={selectedSim.incident.overrides?.windSpeedMps ?? selectedSim.incident.wind_vector.speed_mps}
+                        onChange={(e) => {
+                          updateIncidentOverrides(selectedSim.incident.incident_id, {
+                            windSpeedMps: parseFloat(e.target.value)
+                          });
+                          lookoutSound.playKeyClick();
+                        }}
+                        className="w-full accent-cyan-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between">
+                        <span style={{ color: theme.subtext }}>Dead Fuel Moisture (%):</span>
+                        <span style={{ color: theme.orange }} className="font-bold">
+                          {(selectedSim.incident.overrides?.deadFuelMoisturePct ?? selectedSim.incident.ambient_humidity_pct).toFixed(0)}% (M_x={Math.round(FUEL_MODEL_SPECS[selectedSim.incident.fuel_type].moistureExtinction * 100)}%)
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="2"
+                        max="35"
+                        step="1"
+                        value={selectedSim.incident.overrides?.deadFuelMoisturePct ?? selectedSim.incident.ambient_humidity_pct}
+                        onChange={(e) => {
+                          updateIncidentOverrides(selectedSim.incident.incident_id, {
+                            deadFuelMoisturePct: parseFloat(e.target.value)
+                          });
+                          lookoutSound.playKeyClick();
+                        }}
+                        className="w-full accent-amber-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between">
+                        <span style={{ color: theme.subtext }}>Terrain Slope Grade (%):</span>
+                        <span style={{ color: theme.green }} className="font-bold">
+                          {(selectedSim.incident.overrides?.slopePct ?? selectedSim.incident.slope_deg).toFixed(0)}% slope
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="60"
+                        step="2"
+                        value={selectedSim.incident.overrides?.slopePct ?? selectedSim.incident.slope_deg}
+                        onChange={(e) => {
+                          updateIncidentOverrides(selectedSim.incident.incident_id, {
+                            slopePct: parseFloat(e.target.value)
+                          });
+                          lookoutSound.playKeyClick();
+                        }}
+                        className="w-full accent-emerald-500 cursor-pointer"
+                      />
                     </div>
                   </div>
                 </div>
