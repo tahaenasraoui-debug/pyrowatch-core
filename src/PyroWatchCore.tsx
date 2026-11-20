@@ -2831,35 +2831,39 @@ const NvimSplitBox: React.FC<{
   className?: string;
   children: React.ReactNode;
 }> = ({ title, rightBadge, theme, accentColor, className = '', children }) => {
-  const borderCol = accentColor || theme.border;
+  const cleanTitle = title.replace(/^╭─\s*/, '').replace(/\s*──╮$/, '').trim();
+  const borderCol = accentColor ? `${accentColor}40` : theme.border;
   return (
     <div
-      className={`relative rounded-sm border flex flex-col ${className}`}
+      className={`relative rounded-[2px] border flex flex-col overflow-hidden ${className}`}
       style={{
         backgroundColor: theme.mantle,
         borderColor: borderCol
       }}
     >
-      {/* Top Neovim Floating Border Title Bar */}
+      {/* Sleek Neovim Window Statusline / Titlebar */}
       <div
-        className="h-6 px-2 flex items-center justify-between text-[11px] font-mono shrink-0 border-b select-none"
+        className="h-6 px-2.5 flex items-center justify-between text-[11px] font-mono shrink-0 border-b select-none"
         style={{
           backgroundColor: theme.crust,
-          borderColor: borderCol,
-          color: accentColor || theme.blue
+          borderColor: theme.border,
+          color: theme.fg
         }}
       >
-        <div className="flex items-center gap-1.5 truncate">
-          <span style={{ color: theme.comment }}>╭─</span>
-          <span className="font-bold truncate">{title}</span>
-          <span style={{ color: theme.comment }}>──╮</span>
+        <div className="flex items-center gap-2 truncate">
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ backgroundColor: accentColor || theme.blue }}
+          />
+          <span className="font-semibold tracking-tight truncate">{cleanTitle}</span>
         </div>
         {rightBadge && (
           <span
-            className="px-1.5 py-0.2 rounded-sm text-[10px] font-mono shrink-0"
+            className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono shrink-0 border"
             style={{
-              backgroundColor: `${accentColor || theme.blue}22`,
-              color: accentColor || theme.cyan
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: accentColor || theme.subtext
             }}
           >
             {rightBadge}
@@ -4385,20 +4389,21 @@ export default function App() {
           1. TOP NEOVIM BUFFERLINE.NVIM & COLORSCHEME SWITCHER BAR
          ==================================================================== */}
       <header
-        className="h-9 shrink-0 border-b px-2 flex items-center justify-between gap-2 z-30 text-xs"
+        className="h-9 shrink-0 border-b px-2.5 flex items-center justify-between gap-3 select-none"
         style={{
-          backgroundColor: theme.crust,
+          backgroundColor: theme.mantle,
           borderColor: theme.border
         }}
       >
-        {/* Left: Neovim Buffer Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto">
-          <div
-            className="px-2 py-1 font-bold flex items-center gap-1.5 mr-1 rounded-sm"
-            style={{ backgroundColor: theme.surface, color: theme.orange }}
-          >
-            <Terminal className="w-3.5 h-3.5" />
-            <span>NVIM::PYROWATCH</span>
+        {/* Left: Brand & Bufferline Tabs */}
+        <div className="flex items-center h-full gap-1 overflow-x-auto">
+          <div className="flex items-center gap-1.5 pr-2 mr-1 border-r shrink-0" style={{ borderColor: theme.border }}>
+            <span className="font-bold tracking-wider text-xs" style={{ color: theme.yellow }}>
+              PYROWATCH
+            </span>
+            <span className="text-[9px] px-1 py-0.5 rounded-[2px] font-bold" style={{ backgroundColor: theme.surface, color: theme.cyan }}>
+              CORE
+            </span>
           </div>
 
           {[
@@ -4446,16 +4451,16 @@ export default function App() {
                   setActiveBuffer(buf.id);
                   setVimStatusMsg(`:buffer ${buf.num} (${buf.name})`);
                 }}
-                className="px-2.5 py-1 rounded-t-sm border-t-2 flex items-center gap-1.5 transition"
+                className="h-full px-2.5 flex items-center gap-1.5 transition text-[11px] font-mono border-b-2"
                 style={{
-                  backgroundColor: isAct ? theme.bg : theme.mantle,
+                  backgroundColor: isAct ? theme.bg : 'transparent',
                   borderColor: isAct ? theme.blue : 'transparent',
                   color: isAct ? theme.fg : theme.comment
                 }}
               >
-                <span style={{ color: theme.magenta }}>{buf.num}:</span>
+                <span style={{ color: isAct ? theme.blue : theme.comment }}>{buf.num}:</span>
                 {buf.icon}
-                <span className={isAct ? 'font-bold' : ''}>{buf.name}</span>
+                <span className={isAct ? 'font-semibold' : ''}>{buf.name}</span>
                 <span className="text-[10px]" style={{ color: isAct ? theme.yellow : theme.comment }}>
                   {buf.mod}
                 </span>
@@ -4464,56 +4469,51 @@ export default function App() {
           })}
         </div>
 
-        {/* Center: Live Neovim Colorscheme Switcher Pills */}
-        <div className="hidden lg:flex items-center gap-1">
-          <span className="text-[10px] mr-1 flex items-center gap-1" style={{ color: theme.comment }}>
-            <Palette className="w-3 h-3" style={{ color: theme.magenta }} />
-            colorscheme:
-          </span>
-          {(Object.keys(NVIM_THEMES) as NvimThemeId[]).map((tKey) => {
-            const p = NVIM_THEMES[tKey];
-            const active = themeId === tKey;
-            return (
-              <button
-                key={tKey}
-                onClick={() => {
-                  setThemeId(tKey);
-                  setVimStatusMsg(`:colorscheme ${tKey}`);
-                }}
-                className="px-2 py-0.5 rounded-sm text-[11px] border transition flex items-center gap-1.5"
-                style={{
-                  backgroundColor: active ? p.surface : p.mantle,
-                  borderColor: active ? p.blue : p.border,
-                  color: active ? p.fg : p.comment
-                }}
-              >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: p.orange }}
-                />
-                <span>{p.shortName}</span>
-              </button>
-            );
-          })}
+        {/* Center: Compact Colorscheme Dropdown Cycle */}
+        <div className="hidden lg:flex items-center">
+          <button
+            onClick={() => {
+              const keys = Object.keys(NVIM_THEMES) as NvimThemeId[];
+              const nextIdx = (keys.indexOf(themeId) + 1) % keys.length;
+              setThemeId(keys[nextIdx]);
+              setVimStatusMsg(`:colorscheme ${keys[nextIdx]}`);
+            }}
+            className="px-2.5 py-1 rounded-[2px] border text-[11px] transition flex items-center gap-2 hover:opacity-90 font-mono"
+            style={{
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.fg
+            }}
+            title="Click to cycle colorscheme (:colorscheme <name>)"
+          >
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: NVIM_THEMES[themeId].orange }}
+            />
+            <span className="font-medium">{NVIM_THEMES[themeId].label}</span>
+            <span className="text-[10px]" style={{ color: theme.comment }}>
+              ({NVIM_THEMES[themeId].shortName}) ▾
+            </span>
+          </button>
         </div>
 
-        {/* Right: Telescope Trigger, Ingest & Export Commands */}
-        <div className="flex items-center gap-1.5">
+        {/* Right: Operational Tools */}
+        <div className="flex items-center gap-1.5 shrink-0 font-mono">
           <button
             onClick={() => {
               const newState = lookoutSound.toggle();
               setAudioEnabled(newState);
               setVimStatusMsg(newState ? ':audio on [VHF Radio & Thermal Rumble Active]' : ':audio off [Muted]');
             }}
-            className="px-2 py-0.5 rounded-sm border text-[11px] flex items-center gap-1.5 transition"
+            className="px-2 py-1 rounded-[2px] border text-[11px] flex items-center gap-1.5 transition hover:opacity-90"
             style={{
-              backgroundColor: audioEnabled ? `${theme.green}25` : theme.mantle,
+              backgroundColor: audioEnabled ? `${theme.green}20` : theme.surface,
               borderColor: audioEnabled ? theme.green : theme.border,
               color: audioEnabled ? theme.green : theme.comment
             }}
-            title="Toggle Lookout Radio & Combustion Audio Ambiance"
+            title="Toggle Lookout Radio & Combustion Audio Ambiance (:audio on/off)"
           >
-            {audioEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            {audioEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             <span className="hidden xl:inline">{audioEnabled ? 'radio_on' : 'radio_off'}</span>
           </button>
 
@@ -4526,34 +4526,35 @@ export default function App() {
                   : ':ignite cancelled'
               );
             }}
-            className="px-2 py-0.5 rounded-sm border text-[11px] flex items-center gap-1.5 transition"
+            className="px-2 py-1 rounded-[2px] border text-[11px] flex items-center gap-1.5 transition hover:opacity-90"
             style={{
-              backgroundColor: isIgniteMode ? `${theme.red}30` : theme.mantle,
+              backgroundColor: isIgniteMode ? `${theme.red}25` : theme.surface,
               borderColor: isIgniteMode ? theme.red : theme.border,
               color: isIgniteMode ? theme.red : theme.subtext
             }}
-            title="Ignite new custom wildfire anomaly on canvas"
+            title="Ignite new custom wildfire anomaly on canvas (:ignite)"
           >
-            <Flame className="w-3 h-3" style={{ color: isIgniteMode ? theme.red : theme.orange }} />
+            <Flame className="w-3.5 h-3.5" style={{ color: isIgniteMode ? theme.red : theme.orange }} />
             <span className="hidden sm:inline">{isIgniteMode ? 'click_map!' : ':ignite'}</span>
           </button>
+
           <button
             onClick={() => {
               setIsTelescopeOpen(true);
               setTelescopeHighlightIdx(0);
             }}
-            className="px-2 py-0.5 rounded-sm border text-[11px] flex items-center gap-1.5 transition"
+            className="px-2.5 py-1 rounded-[2px] border text-[11px] flex items-center gap-1.5 transition hover:opacity-90"
             style={{
               backgroundColor: theme.surface,
-              borderColor: theme.magenta,
+              borderColor: theme.border,
               color: theme.fg
             }}
             title="Open Telescope Fuzzy Finder (/ or Ctrl+K)"
           >
-            <Search className="w-3 h-3" style={{ color: theme.magenta }} />
+            <Search className="w-3.5 h-3.5" style={{ color: theme.magenta }} />
             <span>:Telescope</span>
             <kbd
-              className="px-1 text-[9px] rounded-sm"
+              className="px-1 text-[9px] rounded-[2px]"
               style={{ backgroundColor: theme.crust, color: theme.cyan }}
             >
               /
@@ -4562,115 +4563,129 @@ export default function App() {
 
           <button
             onClick={() => setIsIngestModalOpen(true)}
-            className="px-2 py-0.5 rounded-sm border text-[11px] flex items-center gap-1 transition"
+            className="px-2 py-1 rounded-[2px] border text-[11px] flex items-center gap-1 transition hover:opacity-90"
             style={{
-              backgroundColor: `${theme.orange}20`,
-              borderColor: theme.orange,
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
               color: theme.orange
             }}
+            title="Ingest FIRMS NRT CSV / GeoJSON (:Ingest)"
           >
-            <Upload className="w-3 h-3" />
+            <Upload className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">:Ingest</span>
           </button>
 
           <button
             onClick={() => handleExportData('GEOJSON')}
-            className="px-2 py-0.5 rounded-sm border text-[11px] hidden md:flex items-center gap-1 transition"
+            className="px-2 py-1 rounded-[2px] border text-[11px] hidden md:flex items-center gap-1 transition hover:opacity-90"
             style={{
-              backgroundColor: theme.mantle,
+              backgroundColor: theme.surface,
               borderColor: theme.border,
               color: theme.cyan
             }}
+            title="Export simulated anomalies (:w geojson)"
           >
-            <Download className="w-3 h-3" />
+            <Download className="w-3.5 h-3.5" />
             <span>:w geojson</span>
           </button>
         </div>
       </header>
 
-      {/* ====================================================================
-          2. SUB-HEADER TELEMETRY STRUCT BAR (GLOBAL KPI REGISTERS)
+{/* ====================================================================
+          2. SUB-HEADER TELEMETRY REGISTER STRIP (GLOBAL KPIS & THEATER SELECTOR)
          ==================================================================== */}
       <div
-        className="h-8 shrink-0 border-b px-3 flex items-center justify-between gap-4 text-[11px] overflow-x-auto"
+        className="h-8 shrink-0 border-b px-3 flex items-center justify-between gap-4 text-[11px] overflow-x-auto font-mono select-none"
         style={{
           backgroundColor: theme.mantle,
           borderColor: theme.border
         }}
       >
-        <div className="flex items-center gap-4 shrink-0">
-          <span>
-            <span style={{ color: theme.magenta }}>let</span>{' '}
-            <span style={{ color: theme.cyan }}>anomalies</span> ={' '}
-            <span style={{ color: theme.yellow }} className="font-bold">
+        <div className="flex items-center gap-5 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span style={{ color: theme.comment }} className="uppercase text-[10px] tracking-wider font-semibold">Anomalies:</span>
+            <span style={{ color: theme.yellow }} className="font-bold tabular-nums">
               {globalKpis.activeCount}
+              <span style={{ color: theme.comment }} className="font-normal">/{incidents.length}</span>
             </span>
-            <span style={{ color: theme.comment }}>/{incidents.length};</span>
-          </span>
+          </div>
 
-          <span>
-            <span style={{ color: theme.magenta }}>let</span>{' '}
-            <span style={{ color: theme.cyan }}>radiative_gw</span> ={' '}
-            <span style={{ color: theme.orange }} className="font-bold">
-              {globalKpis.totalFrpGw.toFixed(2)}
+          <span style={{ color: theme.border }}>│</span>
+
+          <div className="flex items-center gap-1.5">
+            <span style={{ color: theme.comment }} className="uppercase text-[10px] tracking-wider font-semibold">Radiative FRP:</span>
+            <span style={{ color: theme.orange }} className="font-bold tabular-nums">
+              {globalKpis.totalFrpGw.toFixed(2)} <span className="font-normal text-[10px]" style={{ color: theme.subtext }}>GW</span>
             </span>
-            <span style={{ color: theme.comment }}>_GW;</span>
-          </span>
+          </div>
 
-          <span>
-            <span style={{ color: theme.magenta }}>let</span>{' '}
-            <span style={{ color: theme.cyan }}>burned_ha</span> ={' '}
-            <span style={{ color: theme.red }} className="font-bold">
-              {Math.round(globalKpis.totalBurnedHa).toLocaleString()}
+          <span style={{ color: theme.border }}>│</span>
+
+          <div className="flex items-center gap-1.5">
+            <span style={{ color: theme.comment }} className="uppercase text-[10px] tracking-wider font-semibold">Burn Area:</span>
+            <span style={{ color: theme.red }} className="font-bold tabular-nums">
+              {Math.round(globalKpis.totalBurnedHa).toLocaleString()} <span className="font-normal text-[10px]" style={{ color: theme.subtext }}>ha</span>
             </span>
-            <span style={{ color: theme.comment }}>_ha (@+{simHourOffset.toFixed(1)}h);</span>
-          </span>
+            <span className="text-[10px]" style={{ color: theme.comment }}>
+              (+{simHourOffset.toFixed(1)}h)
+            </span>
+          </div>
 
-          <span className="hidden lg:inline">
-            <span style={{ color: theme.magenta }}>let</span>{' '}
-            <span style={{ color: theme.cyan }}>tessellated_hulls</span> ={' '}
-            <span style={{ color: theme.green }} className="font-bold">
+          <span style={{ color: theme.border }} className="hidden lg:inline">│</span>
+
+          <div className="hidden lg:flex items-center gap-1.5">
+            <span style={{ color: theme.comment }} className="uppercase text-[10px] tracking-wider font-semibold">Hull Clusters:</span>
+            <span style={{ color: theme.green }} className="font-bold tabular-nums">
               {thermalClusters.length}
             </span>
-            <span style={{ color: theme.comment }}> (&lt;{filters.clusterRadiusKm}km);</span>
-          </span>
+          </div>
 
-          <span className="hidden xl:inline">
-            <span style={{ color: theme.magenta }}>let</span>{' '}
-            <span style={{ color: theme.cyan }}>max_pop_exposure</span> ={' '}
-            <span style={{ color: theme.red }} className="font-bold">
+          <span style={{ color: theme.border }} className="hidden xl:inline">│</span>
+
+          <div className="hidden xl:flex items-center gap-1.5">
+            <span style={{ color: theme.comment }} className="uppercase text-[10px] tracking-wider font-semibold">Peak Pop Exposure:</span>
+            <span style={{ color: theme.red }} className="font-bold tabular-nums">
               {globalKpis.highestRiskIncident
                 ? `${(globalKpis.highestRiskIncident.incident.population_at_risk / 1000).toFixed(1)}k`
                 : '0'}
             </span>
-            <span style={{ color: theme.comment }}>;</span>
-          </span>
+          </div>
         </div>
 
-        {/* Theater Quick-Jump Pills */}
-        <div className="flex items-center gap-1 shrink-0">
-          <span style={{ color: theme.comment }}>theater:</span>
-          {(Object.keys(THEATER_PRESETS) as TheaterRegion[]).map((key) => {
-            const active = activeTheater === key;
-            return (
-              <button
-                key={key}
-                onClick={() => handleSelectTheater(key)}
-                className="px-1.5 py-0.5 rounded-sm text-[10px] transition"
-                style={{
-                  backgroundColor: active ? theme.blue : 'transparent',
-                  color: active ? theme.crust : theme.subtext,
-                  fontWeight: active ? 'bold' : 'normal'
-                }}
-              >
-                {key === 'GLOBAL' ? 'GLOBAL' : key.slice(0, 4)}
-              </button>
-            );
-          })}
+        {/* Theater Quick-Jump Segmented Control */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span style={{ color: theme.comment }} className="text-[10px] uppercase tracking-wider">Theater:</span>
+          <div className="flex items-center rounded-[2px] border p-0.5" style={{ backgroundColor: theme.crust, borderColor: theme.border }}>
+            {[
+              { id: 'GLOBAL', label: 'Global' },
+              { id: 'CALIFORNIA', label: 'California' },
+              { id: 'MEDITERRANEAN', label: 'Med Basin' },
+              { id: 'BOREAL_CANADA', label: 'Boreal' },
+              { id: 'SE_AUSTRALIA', label: 'Australia' },
+              { id: 'AMAZON_BASIN', label: 'Amazon' },
+              { id: 'CENTRAL_AFRICA', label: 'Africa' }
+            ].map(({ id, label }) => {
+              const active = activeTheater === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => handleSelectTheater(id as TheaterRegion)}
+                  className="px-2 py-0.5 rounded-[2px] text-[10px] transition font-medium"
+                  style={{
+                    backgroundColor: active ? theme.blue : 'transparent',
+                    color: active ? theme.crust : theme.subtext,
+                    fontWeight: active ? 'bold' : 'normal'
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* ====================================================================
+{/* ====================================================================
           3. MAIN TILED NEOVIM WORKSPACE (3 FLOATING BORDERED SPLITS)
          ==================================================================== */}
       <div className="flex-1 flex gap-1.5 p-1.5 min-h-0 overflow-hidden">
@@ -4689,40 +4704,34 @@ export default function App() {
           >
             <div className="flex-1 flex flex-col relative overflow-hidden min-h-0">
               {/* Top Floating Map Controls */}
-              <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
+              <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10 font-mono">
                 <div className="flex items-center gap-1.5 pointer-events-auto">
-                  <button
-                    onClick={() => setLeftDeckOpen((o) => !o)}
-                    className="px-2 py-1 rounded-sm border text-[10px] flex items-center gap-1 shadow-md"
+                  <div
+                    className="px-2.5 py-1 rounded-[2px] border text-[10px] flex items-center gap-2 backdrop-blur-md"
                     style={{
-                      backgroundColor: `${theme.crust}ee`,
-                      borderColor: theme.border,
-                      color: theme.fg
+                      backgroundColor: `${theme.crust}dd`,
+                      borderColor: theme.border
                     }}
                   >
-                    {leftDeckOpen ? '◀ hide_tree' : '▶ show_tree'}
-                  </button>
-
-                  {/* Quick Theater Camera Reset */}
-                  <button
-                    onClick={() => handleSelectTheater('GLOBAL')}
-                    className="px-2 py-1 rounded-sm border text-[10px] flex items-center gap-1 shadow-md"
-                    style={{
-                      backgroundColor: `${theme.crust}ee`,
-                      borderColor: theme.border,
-                      color: theme.cyan
-                    }}
-                    title="Reset to Global Map View"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>:GlobalView</span>
-                  </button>
+                    <button
+                      onClick={() => handleSelectTheater('GLOBAL')}
+                      className="flex items-center gap-1 hover:opacity-80 transition"
+                      style={{ color: theme.cyan }}
+                      title="Reset View to Global Command Map"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>:GlobalView</span>
+                    </button>
+                    <span style={{ color: theme.border }}>│</span>
+                    <span style={{ color: theme.comment }}>CRS:</span>
+                    <span style={{ color: theme.yellow }}>WGS84 / EPSG:4326</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 pointer-events-auto">
                   <div
-                    className="flex items-center rounded-sm border p-0.5 shadow-md"
-                    style={{ backgroundColor: `${theme.crust}ee`, borderColor: theme.border }}
+                    className="flex items-center rounded-[2px] border p-0.5 backdrop-blur-md"
+                    style={{ backgroundColor: `${theme.crust}dd`, borderColor: theme.border }}
                   >
                     <button
                       onClick={() =>
@@ -4737,7 +4746,7 @@ export default function App() {
                     >
                       +
                     </button>
-                    <span className="px-2 text-[10px] font-bold" style={{ color: theme.yellow }}>
+                    <span className="px-2 text-[10px] font-bold tabular-nums" style={{ color: theme.yellow }}>
                       {camera.zoom.toFixed(1)}x
                     </span>
                     <button
@@ -4757,32 +4766,17 @@ export default function App() {
 
                   <button
                     onClick={() => setRightDrawerOpen((o) => !o)}
-                    className="px-2 py-1 rounded-sm border text-[10px] shadow-md"
+                    className="px-2.5 py-1 rounded-[2px] border text-[10px] flex items-center gap-1.5 backdrop-blur-md transition hover:opacity-90"
                     style={{
-                      backgroundColor: `${theme.crust}ee`,
+                      backgroundColor: `${theme.crust}dd`,
                       borderColor: theme.border,
-                      color: theme.fg
+                      color: rightDrawerOpen ? theme.yellow : theme.comment
                     }}
                   >
-                    {rightDrawerOpen ? 'hide_inspect ▶' : '◀ show_inspect'}
+                    <span>{rightDrawerOpen ? 'close_inspector ▶' : '◀ open_inspector'}</span>
                   </button>
                 </div>
               </div>
-
-              {/* Export Toast */}
-              {exportToast && (
-                <div
-                  className="absolute top-12 left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 rounded-sm border text-xs flex items-center gap-2 shadow-xl"
-                  style={{
-                    backgroundColor: theme.crust,
-                    borderColor: theme.green,
-                    color: theme.green
-                  }}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{exportToast}</span>
-                </div>
-              )}
 
               {/* Interactive GIS Map Canvas Container */}
               <div
@@ -5059,16 +5053,35 @@ export default function App() {
                           </span>
                         </div>
 
-                        <div className="relative w-44 h-44 my-1 select-none flex items-center justify-center">
+                        <div className="relative w-48 h-48 my-1 select-none flex items-center justify-center">
                           <svg viewBox="0 0 200 200" className="w-full h-full">
-                            <circle cx="100" cy="100" r="94" fill={theme.crust} stroke={theme.border} strokeWidth="3" />
-                            <circle cx="100" cy="100" r="88" fill="none" stroke={`${theme.magenta}40`} strokeWidth="1.2" />
+                            <defs>
+                              <radialGradient id="brassGrad" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stopColor={theme.mantle} />
+                                <stop offset="85%" stopColor={theme.bg} />
+                                <stop offset="100%" stopColor={theme.crust} />
+                              </radialGradient>
+                            </defs>
+                            {/* Outer Flange Ring */}
+                            <circle cx="100" cy="100" r="97" fill="url(#brassGrad)" stroke={theme.border} strokeWidth="2" />
+                            <circle cx="100" cy="100" r="91" fill="none" stroke={`${theme.yellow}30`} strokeWidth="1" />
+                            <circle cx="100" cy="100" r="76" fill="none" stroke={theme.border} strokeWidth="0.8" />
 
-                            {Array.from({ length: 24 }).map((_, i) => {
-                              const angle = (i * 15 * Math.PI) / 180;
-                              const isMajor = i % 2 === 0;
-                              const r1 = isMajor ? 76 : 82;
-                              const r2 = 88;
+                            {/* Concentric Range Rings */}
+                            <circle cx="100" cy="100" r="54" fill="none" stroke={theme.border} strokeWidth="0.6" strokeDasharray="2 3" />
+                            <circle cx="100" cy="100" r="32" fill="none" stroke={theme.border} strokeWidth="0.6" strokeDasharray="2 3" />
+
+                            {/* Hairline Crosshairs */}
+                            <line x1="100" y1="24" x2="100" y2="176" stroke={theme.border} strokeWidth="0.7" />
+                            <line x1="24" y1="100" x2="176" y2="100" stroke={theme.border} strokeWidth="0.7" />
+
+                            {/* Azimuth Graduation Ticks (Every 5 deg = 72 ticks) */}
+                            {Array.from({ length: 72 }).map((_, i) => {
+                              const angle = (i * 5 * Math.PI) / 180;
+                              const is30 = i % 6 === 0;
+                              const is10 = i % 2 === 0;
+                              const r1 = is30 ? 76 : is10 ? 81 : 85;
+                              const r2 = 91;
                               const x1 = 100 + r1 * Math.sin(angle);
                               const y1 = 100 - r1 * Math.cos(angle);
                               const x2 = 100 + r2 * Math.sin(angle);
@@ -5080,21 +5093,63 @@ export default function App() {
                                   y1={y1}
                                   x2={x2}
                                   y2={y2}
-                                  stroke={isMajor ? theme.yellow : theme.comment}
-                                  strokeWidth={isMajor ? 1.5 : 0.8}
+                                  stroke={is30 ? theme.yellow : is10 ? theme.subtext : theme.comment}
+                                  strokeWidth={is30 ? 1.5 : is10 ? 1 : 0.6}
                                 />
                               );
                             })}
 
-                            <text x="100" y="24" fill={theme.red} fontSize="10" fontWeight="bold" textAnchor="middle">N</text>
-                            <text x="178" y="104" fill={theme.fg} fontSize="9" fontWeight="bold" textAnchor="middle">E</text>
-                            <text x="100" y="184" fill={theme.fg} fontSize="9" fontWeight="bold" textAnchor="middle">S</text>
-                            <text x="22" y="104" fill={theme.fg} fontSize="9" fontWeight="bold" textAnchor="middle">W</text>
+                            {/* 30-deg Numerical Labels */}
+                            {[
+                              { deg: 0, text: 'N', col: theme.red, bold: true },
+                              { deg: 30, text: '30', col: theme.comment, bold: false },
+                              { deg: 60, text: '60', col: theme.comment, bold: false },
+                              { deg: 90, text: 'E', col: theme.fg, bold: true },
+                              { deg: 120, text: '120', col: theme.comment, bold: false },
+                              { deg: 150, text: '150', col: theme.comment, bold: false },
+                              { deg: 180, text: 'S', col: theme.fg, bold: true },
+                              { deg: 210, text: '210', col: theme.comment, bold: false },
+                              { deg: 240, text: '240', col: theme.comment, bold: false },
+                              { deg: 270, text: 'W', col: theme.fg, bold: true },
+                              { deg: 300, text: '300', col: theme.comment, bold: false },
+                              { deg: 330, text: '330', col: theme.comment, bold: false }
+                            ].map(({ deg, text: lbl, col, bold }) => {
+                              const angle = (deg * Math.PI) / 180;
+                              const r = 68;
+                              const x = 100 + r * Math.sin(angle);
+                              const y = 100 - r * Math.cos(angle) + 3;
+                              return (
+                                <text
+                                  key={deg}
+                                  x={x}
+                                  y={y}
+                                  fill={col}
+                                  fontSize={bold ? '9' : '7'}
+                                  fontWeight={bold ? 'bold' : 'normal'}
+                                  fontFamily="monospace"
+                                  textAnchor="middle"
+                                >
+                                  {lbl}
+                                </text>
+                              );
+                            })}
 
+                            {/* Rotating Alidade Sight Arm */}
                             <g transform={`rotate(${activePrimaryBearing}, 100, 100)`}>
-                              <line x1="100" y1="18" x2="100" y2="182" stroke={theme.magenta} strokeWidth="2.2" />
-                              <polygon points="100,10 95,24 105,24" fill={theme.magenta} />
-                              <circle cx="100" cy="100" r="5" fill={theme.yellow} />
+                              {/* Rear Sighting Vane (Peep aperture) */}
+                              <rect x="96" y="168" width="8" height="12" fill={theme.surface} stroke={theme.border} strokeWidth="1" rx="1" />
+                              <circle cx="100" cy="174" r="1.5" fill={theme.bg} />
+
+                              {/* Alidade Rule Arm */}
+                              <line x1="100" y1="20" x2="100" y2="180" stroke={theme.magenta} strokeWidth="1.8" />
+
+                              {/* Front Sight Vane (Objective bracket with wire) */}
+                              <polygon points="100,10 94,24 106,24" fill={theme.magenta} />
+                              <line x1="100" y1="12" x2="100" y2="24" stroke={theme.yellow} strokeWidth="1" />
+
+                              {/* Center Pivot Collar */}
+                              <circle cx="100" cy="100" r="7" fill={theme.crust} stroke={theme.yellow} strokeWidth="1.5" />
+                              <circle cx="100" cy="100" r="2.5" fill={theme.magenta} />
                             </g>
                           </svg>
                         </div>
@@ -5448,190 +5503,201 @@ export default function App() {
           >
             {selectedSim ? (
               <div className="flex-1 overflow-y-auto p-3 space-y-3 text-[11px]">
-                {/* Syntax-Highlighted Rust Struct Telemetry Header */}
+                {/* Precision Telemetry Master Card */}
                 <div
-                  className="p-2.5 rounded-sm border space-y-1"
-                  style={{
-                    backgroundColor: theme.bg,
-                    borderColor: theme.border
-                  }}
+                  className="p-3 rounded-[2px] border space-y-2.5 font-mono"
+                  style={{ backgroundColor: theme.bg, borderColor: theme.border }}
                 >
                   <div className="flex items-center justify-between">
-                    <span style={{ color: theme.magenta }} className="font-bold">
-                      pub struct ThermalAnomaly &#123;
-                    </span>
+                    <div className="flex items-center gap-2 truncate">
+                      <span
+                        className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold"
+                        style={{ backgroundColor: theme.surface, color: theme.cyan }}
+                      >
+                        {selectedSim.incident.incident_id}
+                      </span>
+                      <span className="font-bold text-xs truncate" style={{ color: theme.fg }}>
+                        {selectedSim.incident.name}
+                      </span>
+                    </div>
                     <span
-                      className="px-1.5 py-0.2 rounded-sm text-[10px] font-bold"
+                      className="px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-wider shrink-0"
                       style={{
-                        backgroundColor: `${selectedSim.fre.severityColor}25`,
-                        color: selectedSim.fre.severityColor
+                        backgroundColor: `${selectedSim.fre.severityColor}20`,
+                        color: selectedSim.fre.severityColor,
+                        border: `1px solid ${selectedSim.fre.severityColor}40`
                       }}
                     >
                       {selectedSim.fre.severityClass}
                     </span>
                   </div>
 
-                  <div className="pl-3 space-y-0.5">
-                    <div>
-                      <span style={{ color: theme.cyan }}>name</span>:{' '}
-                      <span style={{ color: theme.yellow }}>"{selectedSim.incident.name}"</span>,
-                    </div>
-                    <div>
-                      <span style={{ color: theme.cyan }}>coords</span>:{' '}
-                      <span style={{ color: theme.orange }}>
-                        ({selectedSim.incident.latitude.toFixed(3)}°,{' '}
-                        {selectedSim.incident.longitude.toFixed(3)}°)
-                      </span>
-                      ,
-                    </div>
-                    <div>
-                      <span style={{ color: theme.cyan }}>sensor</span>:{' '}
-                      <span style={{ color: theme.green }}>
-                        "{selectedSim.incident.satellite_sensor}"
-                      </span>{' '}
-                      <span style={{ color: theme.comment }}>
-                        // conf={selectedSim.incident.confidence_pct}%
+                  {/* 2-Column Key-Value Specs */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] pt-1 border-t" style={{ borderColor: theme.border }}>
+                    <div className="flex justify-between">
+                      <span style={{ color: theme.comment }}>Coords:</span>
+                      <span style={{ color: theme.orange }} className="font-medium tabular-nums">
+                        {selectedSim.incident.latitude.toFixed(3)}°, {selectedSim.incident.longitude.toFixed(3)}°
                       </span>
                     </div>
-                    <div>
-                      <span style={{ color: theme.cyan }}>frp_mw</span>:{' '}
-                      <span style={{ color: theme.red }} className="font-bold">
-                        {selectedSim.incident.frp.toFixed(1)}
-                      </span>
-                      , <span style={{ color: theme.cyan }}>temp_k</span>:{' '}
-                      <span style={{ color: theme.orange }}>
-                        {selectedSim.incident.brightness_temp_k.toFixed(1)}
+                    <div className="flex justify-between">
+                      <span style={{ color: theme.comment }}>FRP:</span>
+                      <span style={{ color: theme.red }} className="font-bold tabular-nums">
+                        {selectedSim.incident.frp.toFixed(1)} MW
                       </span>
                     </div>
-                  </div>
-                  <div style={{ color: theme.magenta }} className="font-bold">
-                    &#125;
+                    <div className="flex justify-between">
+                      <span style={{ color: theme.comment }}>Sensor:</span>
+                      <span style={{ color: theme.green }} className="font-medium">
+                        {selectedSim.incident.satellite_sensor} ({selectedSim.incident.confidence_pct}%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: theme.comment }}>Temp:</span>
+                      <span style={{ color: theme.yellow }} className="font-medium tabular-nums">
+                        {selectedSim.incident.brightness_temp_k.toFixed(1)} K
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: theme.comment }}>Fuel:</span>
+                      <span style={{ color: theme.magenta }} className="font-medium truncate max-w-[120px]">
+                        {selectedSim.incident.fuel_type}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: theme.comment }}>Region:</span>
+                      <span style={{ color: theme.cyan }} className="font-medium truncate max-w-[120px]">
+                        {selectedSim.incident.region}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Rothermel Surface Spread Metrics */}
+                {/* Rothermel Physical Spread Metrics */}
                 <div
-                  className="p-2.5 rounded-sm border space-y-2"
-                  style={{
-                    backgroundColor: theme.bg,
-                    borderColor: theme.border
-                  }}
+                  className="p-3 rounded-[2px] border space-y-2.5 font-mono"
+                  style={{ backgroundColor: theme.bg, borderColor: theme.border }}
                 >
-                  <div className="flex items-center justify-between">
-                    <span style={{ color: theme.blue }} className="font-bold">
-                      impl RothermelSpread &#123;
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span style={{ color: theme.fg }} className="font-bold uppercase tracking-wider text-[10px]">
+                      ROTHERMEL SURFACE SPREAD METRICS
                     </span>
-                    <span style={{ color: theme.yellow }}>{selectedSim.incident.fuel_type}</span>
+                    <span style={{ color: theme.comment }} className="text-[10px]">
+                      Model: {FUEL_MODEL_SPECS[selectedSim.incident.fuel_type].code}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div
-                      className="p-2 rounded-sm border"
+                      className="p-2 rounded-[2px] border"
                       style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
                     >
-                      <div style={{ color: theme.comment }} className="text-[10px]">
-                        rate_of_spread (R)
+                      <div style={{ color: theme.comment }} className="text-[10px] uppercase font-medium">
+                        Rate of Spread (R)
                       </div>
-                      <div style={{ color: theme.orange }} className="text-sm font-bold">
-                        {selectedSim.rothermel.rateOfSpreadMpm.toFixed(1)} m/min
+                      <div style={{ color: theme.orange }} className="text-sm font-bold tabular-nums">
+                        {selectedSim.rothermel.rateOfSpreadMpm.toFixed(1)}{' '}
+                        <span className="text-[10px] font-normal" style={{ color: theme.subtext }}>m/min</span>
                       </div>
-                      <div style={{ color: theme.subtext }} className="text-[10px]">
+                      <div style={{ color: theme.comment }} className="text-[10px] tabular-nums">
                         {selectedSim.rothermel.rateOfSpreadKmh.toFixed(2)} km/h
                       </div>
                     </div>
 
                     <div
-                      className="p-2 rounded-sm border"
+                      className="p-2 rounded-[2px] border"
                       style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
                     >
-                      <div style={{ color: theme.comment }} className="text-[10px]">
-                        fireline_intensity (I_B)
+                      <div style={{ color: theme.comment }} className="text-[10px] uppercase font-medium">
+                        Fireline Intensity (I_B)
                       </div>
-                      <div style={{ color: theme.red }} className="text-sm font-bold">
+                      <div style={{ color: theme.red }} className="text-sm font-bold tabular-nums">
                         {Math.round(selectedSim.rothermel.firelineIntensityKwm).toLocaleString()}{' '}
-                        kW/m
+                        <span className="text-[10px] font-normal" style={{ color: theme.subtext }}>kW/m</span>
                       </div>
-                      <div style={{ color: theme.subtext }} className="text-[10px]">
-                        L_f = {selectedSim.rothermel.flameLengthM.toFixed(1)} m
-                      </div>
-                    </div>
-
-                    <div
-                      className="p-2 rounded-sm border"
-                      style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
-                    >
-                      <div style={{ color: theme.comment }} className="text-[10px]">
-                         integrated_fre & Q
-                      </div>
-                      <div style={{ color: theme.yellow }} className="text-xs font-bold">
-                        {selectedSim.fre.freTerajoules.toFixed(2)} TJ
-                      </div>
-                      <div style={{ color: theme.subtext }} className="text-[10px]">
-                        Q_pm25: {(selectedSim.fre.pm25EmissionRateGs / 1000).toFixed(2)} kg/s
+                      <div style={{ color: theme.comment }} className="text-[10px] tabular-nums">
+                        Flame Length: {selectedSim.rothermel.flameLengthM.toFixed(1)} m
                       </div>
                     </div>
 
                     <div
-                      className="p-2 rounded-sm border"
+                      className="p-2 rounded-[2px] border"
                       style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
                     >
-                      <div style={{ color: theme.comment }} className="text-[10px]">
-                        ellipse_area (+{simHourOffset.toFixed(0)}h)
+                      <div style={{ color: theme.comment }} className="text-[10px] uppercase font-medium">
+                        Radiative Energy (FRE)
                       </div>
-                      <div style={{ color: theme.green }} className="text-xs font-bold">
-                        {Math.round(selectedSim.rothermel.simulatedBurnAreaHa).toLocaleString()} ha
+                      <div style={{ color: theme.yellow }} className="text-sm font-bold tabular-nums">
+                        {selectedSim.fre.freTerajoules.toFixed(2)}{' '}
+                        <span className="text-[10px] font-normal" style={{ color: theme.subtext }}>TJ</span>
                       </div>
-                      <div style={{ color: theme.subtext }} className="text-[10px]">
-                        {selectedSim.rothermel.ellipseMajorAxisKm.toFixed(1)}×
-                        {selectedSim.rothermel.ellipseMinorAxisKm.toFixed(1)} km
+                      <div style={{ color: theme.comment }} className="text-[10px] tabular-nums">
+                        PM2.5 Q: {(selectedSim.fre.pm25EmissionRateGs / 1000).toFixed(2)} kg/s
+                      </div>
+                    </div>
+
+                    <div
+                      className="p-2 rounded-[2px] border"
+                      style={{ backgroundColor: theme.mantle, borderColor: theme.border }}
+                    >
+                      <div style={{ color: theme.comment }} className="text-[10px] uppercase font-medium">
+                        Sim Burn Area (+{simHourOffset.toFixed(0)}h)
+                      </div>
+                      <div style={{ color: theme.green }} className="text-sm font-bold tabular-nums">
+                        {Math.round(selectedSim.rothermel.simulatedBurnAreaHa).toLocaleString()}{' '}
+                        <span className="text-[10px] font-normal" style={{ color: theme.subtext }}>ha</span>
+                      </div>
+                      <div style={{ color: theme.comment }} className="text-[10px] tabular-nums">
+                        {selectedSim.rothermel.ellipseMajorAxisKm.toFixed(1)} × {selectedSim.rothermel.ellipseMinorAxisKm.toFixed(1)} km
                       </div>
                     </div>
                   </div>
 
+                  {/* Albini Spotting Banner */}
                   <div
-                    className="p-2 rounded-sm border text-[11px] flex items-center justify-between"
+                    className="p-2 rounded-[2px] border text-[11px] flex items-center justify-between"
                     style={{
-                      backgroundColor: `${theme.orange}15`,
-                      borderColor: theme.orange,
+                      backgroundColor: `${theme.orange}10`,
+                      borderColor: `${theme.orange}40`,
                       color: theme.orange
                     }}
                   >
-                    <span>Albini Spotting Radius:</span>
-                    <span className="font-bold">
+                    <span className="font-medium">Albini Spotting Radius:</span>
+                    <span className="font-bold tabular-nums">
                       {selectedSim.rothermel.spotting.maxSpottingDistanceKm} km ({selectedSim.rothermel.spotting.spottingRiskLevel})
                     </span>
                   </div>
 
                   {selectedSim.rothermel.isExtinguished && (
                     <div
-                      className="p-2 rounded-sm border text-[11px] font-bold text-center"
-                      style={{ backgroundColor: `${theme.cyan}20`, borderColor: theme.cyan, color: theme.cyan }}
+                      className="p-2 rounded-[2px] border text-[11px] font-bold text-center"
+                      style={{ backgroundColor: `${theme.cyan}15`, borderColor: theme.cyan, color: theme.cyan }}
                     >
-                      [DORMANT: Dead Fuel Moisture Exceeds Extinction Threshold]
+                      DORMANT: Dead Fuel Moisture Exceeds Extinction Threshold
                     </div>
                   )}
 
                   {selectedSim.rothermel.suppressedByRetardant && (
                     <div
-                      className="p-2 rounded-sm border text-[11px] font-bold text-center"
-                      style={{ backgroundColor: `${theme.red}20`, borderColor: theme.red, color: theme.red }}
+                      className="p-2 rounded-[2px] border text-[11px] font-bold text-center"
+                      style={{ backgroundColor: `${theme.red}15`, borderColor: theme.red, color: theme.red }}
                     >
-                      [PHOS-CHEK APPLIED: Spread Rate Suppressed by 65%]
+                      PHOS-CHEK APPLIED: Spread Suppressed by 65%
                     </div>
                   )}
                 </div>
 
                 {/* Tactical Incident Suppression Command Card */}
                 <div
-                  className="p-2.5 rounded-sm border space-y-2"
+                  className="p-3 rounded-[2px] border space-y-2.5 font-mono"
                   style={{ backgroundColor: theme.bg, borderColor: theme.border }}
                 >
                   <div className="flex items-center justify-between">
-                    <span style={{ color: theme.red }} className="font-bold flex items-center gap-1.5">
+                    <span style={{ color: theme.red }} className="font-bold flex items-center gap-1.5 text-xs">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>Tactical Suppression Dispatch</span>
                     </span>
-                    <span className="text-[10px] font-bold" style={{ color: theme.green }}>
+                    <span className="text-[10px] font-bold tabular-nums" style={{ color: theme.green }}>
                       Containment: {selectedSim.rothermel.effectiveContainmentPct}%
                     </span>
                   </div>
@@ -5643,10 +5709,10 @@ export default function App() {
                         lookoutSound.playVlatRadio();
                         setVimStatusMsg(`:vlat -> Deployed DC-10 Phos-Chek retardant drop on ${selectedSim.incident.incident_id}`);
                       }}
-                      className="p-1.5 rounded-sm border font-bold flex items-center justify-center gap-1 hover:opacity-80"
-                      style={{ backgroundColor: `${theme.red}25`, borderColor: theme.red, color: theme.red }}
+                      className="p-2 rounded-[2px] border font-bold flex items-center justify-center gap-1.5 hover:opacity-90 transition"
+                      style={{ backgroundColor: `${theme.red}20`, borderColor: theme.red, color: theme.red }}
                     >
-                      <Plane className="w-3 h-3" />
+                      <Plane className="w-3.5 h-3.5" />
                       <span>Deploy VLAT Drop</span>
                     </button>
 
@@ -5656,10 +5722,10 @@ export default function App() {
                         lookoutSound.playSquelch();
                         setVimStatusMsg(`:dozer -> Bulldozer crew cutting mineral soil line on ${selectedSim.incident.incident_id}`);
                       }}
-                      className="p-1.5 rounded-sm border font-bold flex items-center justify-center gap-1 hover:opacity-80"
-                      style={{ backgroundColor: `${theme.yellow}25`, borderColor: theme.yellow, color: theme.yellow }}
+                      className="p-2 rounded-[2px] border font-bold flex items-center justify-center gap-1.5 hover:opacity-90 transition"
+                      style={{ backgroundColor: `${theme.yellow}20`, borderColor: theme.yellow, color: theme.yellow }}
                     >
-                      <Truck className="w-3 h-3" />
+                      <Truck className="w-3.5 h-3.5" />
                       <span>Cut Dozer Line</span>
                     </button>
                   </div>
@@ -5667,11 +5733,11 @@ export default function App() {
 
                 {/* Interactive Rothermel Sensitivity Sandbox Sliders */}
                 <div
-                  className="p-2.5 rounded-sm border space-y-2"
+                  className="p-3 rounded-[2px] border space-y-2.5 font-mono"
                   style={{ backgroundColor: theme.bg, borderColor: theme.border }}
                 >
                   <div className="flex items-center justify-between">
-                    <span style={{ color: theme.yellow }} className="font-bold flex items-center gap-1.5">
+                    <span style={{ color: theme.yellow }} className="font-bold flex items-center gap-1.5 text-xs">
                       <SlidersHorizontal className="w-3.5 h-3.5" />
                       <span>Rothermel What-If Sandbox</span>
                     </span>
@@ -5681,7 +5747,7 @@ export default function App() {
                         lookoutSound.playKeyClick();
                         setVimStatusMsg(`:reset overrides on ${selectedSim.incident.incident_id}`);
                       }}
-                      className="text-[10px] underline hover:opacity-80"
+                      className="text-[10px] underline hover:opacity-80 transition"
                       style={{ color: theme.comment }}
                     >
                       reset_baseline
@@ -5690,9 +5756,9 @@ export default function App() {
 
                   <div className="space-y-2 text-[10px]">
                     <div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between mb-1">
                         <span style={{ color: theme.subtext }}>Wind Speed (10m):</span>
-                        <span style={{ color: theme.cyan }} className="font-bold">
+                        <span style={{ color: theme.cyan }} className="font-bold tabular-nums">
                           {(selectedSim.incident.overrides?.windSpeedMps ?? selectedSim.incident.wind_vector.speed_mps).toFixed(1)} m/s ({((selectedSim.incident.overrides?.windSpeedMps ?? selectedSim.incident.wind_vector.speed_mps) * 2.237).toFixed(0)} mph)
                         </span>
                       </div>
@@ -5713,9 +5779,9 @@ export default function App() {
                     </div>
 
                     <div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between mb-1">
                         <span style={{ color: theme.subtext }}>Dead Fuel Moisture (%):</span>
-                        <span style={{ color: theme.orange }} className="font-bold">
+                        <span style={{ color: theme.orange }} className="font-bold tabular-nums">
                           {(selectedSim.incident.overrides?.deadFuelMoisturePct ?? selectedSim.incident.ambient_humidity_pct).toFixed(0)}% (M_x={Math.round(FUEL_MODEL_SPECS[selectedSim.incident.fuel_type].moistureExtinction * 100)}%)
                         </span>
                       </div>
@@ -5736,9 +5802,9 @@ export default function App() {
                     </div>
 
                     <div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between mb-1">
                         <span style={{ color: theme.subtext }}>Terrain Slope Grade (%):</span>
-                        <span style={{ color: theme.green }} className="font-bold">
+                        <span style={{ color: theme.green }} className="font-bold tabular-nums">
                           {(selectedSim.incident.overrides?.slopePct ?? selectedSim.incident.slope_deg).toFixed(0)}% slope
                         </span>
                       </div>
@@ -5985,7 +6051,7 @@ export default function App() {
           >
             {/* Left Pane: Telescope Prompt + Results List */}
             <NvimSplitBox
-              title="╭─ Telescope Find Thermal Anomalies ──╮"
+              title="Telescope: Find Thermal Anomalies (/)"
               rightBadge={`${telescopeResults.length} / ${simulatedIncidents.length}`}
               theme={theme}
               accentColor={theme.magenta}
@@ -6052,7 +6118,7 @@ export default function App() {
 
             {/* Right Pane: Telescope Live Physics Preview */}
             <NvimSplitBox
-              title="╭─ Live Physics Preview ──╮"
+              title="Live Physics Preview (rothermel.rs)"
               rightBadge="rothermel.rs"
               theme={theme}
               accentColor={theme.cyan}
@@ -6133,7 +6199,7 @@ export default function App() {
       {isIngestModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
           <NvimSplitBox
-            title="╭─ :IngestFIRMS // NASA VIIRS & MODIS NRT Telemetry Parser ──╮"
+            title=":IngestFIRMS // NASA VIIRS & MODIS NRT Telemetry Parser"
             rightBadge="CSV | GeoJSON"
             theme={theme}
             accentColor={theme.orange}
