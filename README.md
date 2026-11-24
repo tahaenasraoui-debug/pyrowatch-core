@@ -2,7 +2,7 @@
 
 A client-side geospatial wildfire telemetry tracker, atmospheric smoke dispersion simulator, and orbital hotspot analyzer built with a Neovim TUI aesthetic.
 
-The entire application lives in one file, `src/PyroWatchCore.tsx`. The physics engine, Canvas renderer, UI, themes, and the 56 synthetic incidents are all in that component, so you can read it top to bottom or drop it into any React + Tailwind project.
+The UI and 60fps Canvas GIS renderer live in `src/PyroWatchCore.tsx`, backed by pure, unit-tested physics, geodesy, NASA FIRMS parser, Web Audio, theme, and dataset modules under `src/lib/` (including 53 synthetic global wildfire incidents).
 
 PyroWatch-Core pairs a 60fps HTML5 Canvas GIS projection engine with physical fire modeling. It implements the Rothermel (1972) surface fire spread model, Byram's fireline intensity, Wooster's Fire Radiative Energy (FRE) integration, and a 2D Gaussian smoke plume dispersion model across NASA FIRMS (VIIRS and MODIS) satellite detection schemas.
 
@@ -39,12 +39,12 @@ $$
 
 * **Colorschemes:** Live-switch between `tokyonight-storm`, `catppuccin-mocha`, `gruvbox-material`, `kanagawa-wave`, and `rose-pine`, updating both the UI split borders and the GIS vector canvas.
 * **Buffers & Horizontal Splits:** Keep the interactive GIS map open while inspecting:
-  * `1: [gis] vector_cartography.rs` — Interactive 60fps canvas with lookout towers and hotspot perimeters.
+  * `1: [gis] viewport.gis` — Interactive 60fps canvas with lookout towers and hotspot perimeters.
   * `2: [csv] firms_nrt.csv` — Tabular NASA FIRMS telemetry buffer.
   * `3: [rust] rothermel_plume.rs` — Rust struct evaluation preview of the active Rothermel spread.
   * `4: [lookout] firefinder.rs` — Osborne Firefinder station with interactive brass azimuth ring, alidade sightline needle, and dual-bearing cross-triangulation solver.
   * `5: [docs] help_docs.txt` — Neovim operator cheat sheet and mathematical derivations.
-* **Telescope Fuzzy Finder:** Press `/` or `Ctrl+K` to filter 55+ global thermal anomalies by name, fuel type, satellite sensor, or region with a live physics preview pane.
+* **Telescope Fuzzy Finder:** Press `/` or `Ctrl+K` to filter 53 built-in (plus ingested/ignited) global thermal anomalies by name, fuel type, satellite sensor, or region with a live physics preview pane.
 * **NASA FIRMS NRT Ingestion & Export:** Paste raw NASA FIRMS CSV or GeoJSON payloads via `:Ingest` and export simulated perimeter and dispersion calculations back to `.csv` or `.geojson`.
 * **Procedural Web Audio Telemetry:** Zero external audio assets. Emulates real-time VHF radio receiver hiss, squelch clicks on buffer switching, and low-frequency thermal combustion rumble scaled to the selected incident's radiated megawatts (FRP).
 * **Tactical Suppression & Rothermel Sandbox:** Real-time right drawer sliders for wind speed, dead fuel moisture, and slope. Deploy tactical VLAT DC-10 Phos-Chek retardant drops, cut bulldozer mineral lines, or ignite spot fires on the canvas.
@@ -79,10 +79,12 @@ npm run dev
 
 Open the `localhost` URL that Vite prints (usually `http://localhost:5173`).
 
-### Production build
+### Verification & production build
 
 ```bash
-npm run build     # outputs to dist/
+npm run lint      # oxlint static analysis
+npm test          # Vitest unit test suite
+npm run build     # tsc -b && vite build -> dist/
 npm run preview   # serves the built app locally
 ```
 
@@ -92,11 +94,21 @@ npm run preview   # serves the built app locally
 
 ```text
 pyrowatch-core/
+├── .github/workflows/ci.yml
 ├── public/
 ├── src/
-│   ├── PyroWatchCore.tsx   # The whole app: physics, canvas, UI, themes, data
-│   ├── main.tsx            # Vite entry point
-│   └── index.css           # Tailwind import
+│   ├── lib/
+│   │   ├── audio.ts          # Procedural Web Audio VHF radio & thermal rumble engine
+│   │   ├── constants.ts      # Neovim themes, theater presets, lookout towers, vector coastlines
+│   │   ├── firmsParser.ts    # NASA FIRMS CSV/GeoJSON ingestion & export serializers
+│   │   ├── geodesy.ts        # Haversine, spherical triangulation, hemisphere formatting, convex hull
+│   │   ├── incidents.ts      # 53 synthetic global NASA FIRMS wildfire incidents
+│   │   ├── physics.ts        # Rothermel spread, Byram intensity, FRE, 2D Gaussian plume, clustering
+│   │   ├── types.ts          # Core domain TypeScript interfaces
+│   │   └── __tests__/        # Vitest unit test suites
+│   ├── PyroWatchCore.tsx     # Neovim TUI workspace & 60fps HTML5 Canvas GIS renderer
+│   ├── main.tsx              # Vite entry point
+│   └── index.css             # Tailwind import
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -105,7 +117,7 @@ pyrowatch-core/
 └── LICENSE
 ```
 
-Stack: React, TypeScript, Vite, Tailwind CSS v4, `lucide-react`. There is no backend and no API key. Everything runs in the browser.
+Stack: React, TypeScript, Vite, Vitest, Tailwind CSS v4, `lucide-react`. There is no backend and no API key. Everything runs in the browser.
 
 ## References & Data Attribution
 

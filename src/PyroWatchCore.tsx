@@ -1,2260 +1,87 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Flame,
-  Wind,
   Activity,
   Compass,
-  Layers,
-  Filter,
   Play,
   Pause,
   RotateCcw,
   Download,
   Upload,
   AlertTriangle,
-  Satellite,
-  ZoomIn,
-  ZoomOut,
   Crosshair,
-  Thermometer,
-  ShieldAlert,
-  MapPin,
-  ChevronRight,
-  ChevronLeft,
-  Sliders,
-  FileText,
-  CheckCircle2,
-  Sparkles,
-  Eye,
-  Clock,
-  BarChart3,
-  Terminal,
   Search,
   Code2,
   Table,
   GitBranch,
-  Cpu,
-  Palette,
-  Command,
   Volume2,
   VolumeX,
   Radio,
-  Navigation,
   SlidersHorizontal,
   HelpCircle,
   Plane,
   Truck,
-  Target,
   ShieldCheck
 } from 'lucide-react';
-
-// ============================================================================
-// 0. NEOVIM COLORSCHEME ENGINE (5 ICONIC CUSTOM THEMES)
-// ============================================================================
-
-export type NvimThemeId =
-  | 'tokyonight-storm'
-  | 'catppuccin-mocha'
-  | 'gruvbox-material'
-  | 'kanagawa-wave'
-  | 'rose-pine';
-
-export interface NvimThemePalette {
-  id: NvimThemeId;
-  label: string;
-  shortName: string;
-  bg: string;        // Main editor / ocean backdrop
-  mantle: string;    // Darker sidebar / statusline / landmass fill
-  crust: string;     // Deepest border / terminal backdrop
-  surface: string;   // Floating window / card surface
-  border: string;    // Crisp 1px split border
-  fg: string;        // Primary syntax foreground
-  subtext: string;   // Secondary identifier text
-  comment: string;   // Line numbers & comments
-  blue: string;      // Keywords / Functions / Normal Mode
-  magenta: string;   // Types / Structs / Telescope Mode
-  red: string;       // Extreme FRP / Errors / Sim-Run Mode
-  orange: string;    // Constants / High FRP / Numbers
-  yellow: string;    // Strings / Moderate FRP / Warnings
-  green: string;     // Low FRP / Git branch / Insert Mode
-  cyan: string;      // Operators / Coordinates / Fields
-}
-
-export const NVIM_THEMES: Record<NvimThemeId, NvimThemePalette> = {
-  'tokyonight-storm': {
-    id: 'tokyonight-storm',
-    label: 'TokyoNight Storm',
-    shortName: 'tokyonight',
-    bg: '#1a1b26',
-    mantle: '#16161e',
-    crust: '#111219',
-    surface: '#24283b',
-    border: '#3b4261',
-    fg: '#c0caf5',
-    subtext: '#a9b1d6',
-    comment: '#565f89',
-    blue: '#7aa2f7',
-    magenta: '#bb9af7',
-    red: '#f7768e',
-    orange: '#ff9e64',
-    yellow: '#e0af68',
-    green: '#9ece6a',
-    cyan: '#7dcfff'
-  },
-  'catppuccin-mocha': {
-    id: 'catppuccin-mocha',
-    label: 'Catppuccin Mocha',
-    shortName: 'catppuccin',
-    bg: '#1e1e2e',
-    mantle: '#181825',
-    crust: '#11111b',
-    surface: '#313244',
-    border: '#45475a',
-    fg: '#cdd6f4',
-    subtext: '#bac2de',
-    comment: '#6c7086',
-    blue: '#89b4fa',
-    magenta: '#cba6f7',
-    red: '#f38ba8',
-    orange: '#fab387',
-    yellow: '#f9e2af',
-    green: '#a6e3a1',
-    cyan: '#94e2d5'
-  },
-  'gruvbox-material': {
-    id: 'gruvbox-material',
-    label: 'Gruvbox Material',
-    shortName: 'gruvbox',
-    bg: '#1d2021',
-    mantle: '#141617',
-    crust: '#0e1010',
-    surface: '#282828',
-    border: '#504945',
-    fg: '#d4be98',
-    subtext: '#ddc7a1',
-    comment: '#7c6f64',
-    blue: '#7daea3',
-    magenta: '#d3869b',
-    red: '#ea6962',
-    orange: '#e78a4e',
-    yellow: '#d8a657',
-    green: '#a9b665',
-    cyan: '#89b482'
-  },
-  'kanagawa-wave': {
-    id: 'kanagawa-wave',
-    label: 'Kanagawa Wave',
-    shortName: 'kanagawa',
-    bg: '#1f1f28',
-    mantle: '#16161d',
-    crust: '#111117',
-    surface: '#2a2a37',
-    border: '#54546d',
-    fg: '#dcd7ba',
-    subtext: '#c8c093',
-    comment: '#727169',
-    blue: '#7e9cd8',
-    magenta: '#957fb8',
-    red: '#e46876',
-    orange: '#ffa066',
-    yellow: '#dca561',
-    green: '#98bb6c',
-    cyan: '#6a9589'
-  },
-  'rose-pine': {
-    id: 'rose-pine',
-    label: 'Rosé Pine',
-    shortName: 'rose-pine',
-    bg: '#191724',
-    mantle: '#1f1d2e',
-    crust: '#14121d',
-    surface: '#26233a',
-    border: '#403d52',
-    fg: '#e0def4',
-    subtext: '#908caa',
-    comment: '#6e6a86',
-    blue: '#31748f',
-    magenta: '#c4a7e7',
-    red: '#eb6f92',
-    orange: '#ea9a97',
-    yellow: '#f6c177',
-    green: '#9ccfd8',
-    cyan: '#ebbcba'
-  }
-};
-
-export type ActiveBufferTab =
-  | 'VIEWPORT_GIS'
-  | 'FIRMS_TABLE_CSV'
-  | 'ROTHERMEL_CORE_RS'
-  | 'FIREFINDER_TUI'
-  | 'HELP_DOCS';
-
-// ============================================================================
-// 1. TYPE DEFINITIONS & INTERFACES
-// ============================================================================
-
-export type SatelliteSensor = 'VIIRS SNPP' | 'VIIRS NOAA-20' | 'MODIS Terra' | 'MODIS Aqua';
-
-export type FuelModelType =
-  | 'Chaparral'
-  | 'Boreal Forest'
-  | 'Mediterranean Scrub'
-  | 'Eucalyptus Bush'
-  | 'Savanna Grassland'
-  | 'Tropical Rainforest';
-
-export type TheaterRegion =
-  | 'GLOBAL'
-  | 'CALIFORNIA'
-  | 'MEDITERRANEAN'
-  | 'BOREAL_CANADA'
-  | 'AUSTRALIA'
-  | 'AMAZONIA'
-  | 'SAVANNA_AFRICA';
-
-export interface WindVector {
-  speed_mps: number;   // meters per second at 10m height
-  bearing_deg: number; // direction wind is blowing TOWARDS (0 = N, 90 = E, 180 = S, 270 = W)
-}
-
-export interface LookoutTower {
-  id: string;
-  name: string;
-  region: string;
-  latitude: number;
-  longitude: number;
-  elevationFt: number;
-  established: number;
-  status: 'ACTIVE_STAFFED' | 'HISTORIC_PRESERVED' | 'AUTOMATED_OPTICAL';
-}
-
-export interface SuppressionTactics {
-  vlatDrops: number;
-  dozerLineKm: number;
-  backburnActive: boolean;
-  retardantApplied: boolean;
-}
-
-export interface PhysicsOverrides {
-  windSpeedMps?: number;
-  windBearingDeg?: number;
-  deadFuelMoisturePct?: number;
-  slopePct?: number;
-}
-
-export interface AlbiniSpottingMetrics {
-  maxSpottingDistanceKm: number;
-  spottingRiskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
-  flameHeightM: number;
-}
-
-export interface TriangulationSolution {
-  lat: number;
-  lon: number;
-  distFromAkm: number;
-  distFromBkm: number;
-  errorRadiusKm: number;
-  elevationEstFt: number;
-}
-
-export interface WildfireIncident {
-  incident_id: string;
-  name: string;
-  region: TheaterRegion;
-  latitude: number;
-  longitude: number;
-  frp: number; // Fire Radiative Power in Megawatts (MW)
-  brightness_temp_k: number; // Kelvin (Channel I4 / MODIS B21)
-  confidence_pct: number; // 0 - 100%
-  detection_utc: string; // ISO timestamp
-  hours_ago: number; // Hours prior to current epoch for temporal scrubbing
-  satellite_sensor: SatelliteSensor;
-  fuel_type: FuelModelType;
-  estimated_containment_pct: number;
-  slope_deg: number; // Ambient topographic slope grade in degrees
-  ambient_humidity_pct: number; // Relative humidity %
-  population_at_risk: number; // Downwind/proximate population within 25km
-  wind_vector: WindVector;
-  suppression?: SuppressionTactics;
-  overrides?: PhysicsOverrides;
-}
-
-export interface RothermelMetrics {
-  rateOfSpreadMpm: number;      // R in meters / minute
-  rateOfSpreadKmh: number;      // R in km / hour
-  reactionIntensityKwm2: number;// I_R in kW/m^2
-  firelineIntensityKwm: number; // Byram's intensity I_B in kW/m
-  flameLengthM: number;         // Flame length L_f in meters
-  windFactorPhiW: number;       // Dimensionless wind multiplier
-  slopeFactorPhiS: number;      // Dimensionless slope multiplier
-  initialBurnAreaHa: number;    // Estimated current area (hectares)
-  simulatedBurnAreaHa: number;  // Projected area after +simHours
-  ellipseMajorAxisKm: number;   // Downwind elliptical spread length (km)
-  ellipseMinorAxisKm: number;   // Crosswind elliptical spread width (km)
-  spotting: AlbiniSpottingMetrics;
-  isExtinguished: boolean;
-  suppressedByRetardant: boolean;
-  effectiveContainmentPct: number;
-}
-
-export interface PlumeConcentrationPoint {
-  distanceKm: number;
-  centerlinePm25: number;       // ug/m^3 along plume axis (y = 0)
-  sigmaY: number;               // Horizontal dispersion coeff (m)
-  sigmaZ: number;               // Vertical dispersion coeff (m)
-  aqiCategory: 'Good' | 'Moderate' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
-  colorHex: string;
-}
-
-export interface FREMetrics {
-  freGigajoules: number;        // Time-integrated Fire Radiative Energy (GJ)
-  freTerajoules: number;        // Time-integrated Fire Radiative Energy (TJ)
-  biomassCombustionRateKgs: number; // kg/s of dry biomass consumed
-  pm25EmissionRateGs: number;   // Q in grams/second of PM2.5
-  severityClass: 'Low' | 'Moderate' | 'High' | 'Extreme Complex';
-  severityColor: string;
-}
-
-export interface IncidentPhysicsSimulation {
-  incident: WildfireIncident;
-  rothermel: RothermelMetrics;
-  fre: FREMetrics;
-  plumeProfile: PlumeConcentrationPoint[];
-  corridor6hKm: number;
-  corridor12hKm: number;
-  corridor24hKm: number;
-  activeSimCorridorKm: number;
-}
-
-export interface ThermalCluster {
-  cluster_id: string;
-  name: string;
-  incidents: IncidentPhysicsSimulation[];
-  centroid: { lat: number; lon: number };
-  hullPoints: Array<{ lat: number; lon: number }>;
-  aggregateFrpMw: number;
-  maxRateOfSpreadMpm: number;
-  totalPopulationAtRisk: number;
-  perimeterKm: number;
-}
-
-export interface GISFilterState {
-  minFrp: number;
-  minConfidence: number;
-  lookbackHours: number; // 6, 24, 48, 168 (7d)
-  selectedSensors: SatelliteSensor[];
-  selectedFuels: FuelModelType[];
-  clusterRadiusKm: number;
-  searchQuery: string;
-}
-
-export interface LayerVisibility {
-  plumeCones: boolean;
-  clusterHulls: boolean;
-  pulseRings: boolean;
-  thermalHeatmap: boolean;
-  windVectors: boolean;
-  graticuleGrid: boolean;
-}
-
-// ============================================================================
-// 2. SCIENTIFIC FUEL & DISPERSION CONSTANTS (ROTHERMEL & PASQUILL-GIFFORD)
-// ============================================================================
-
-interface FuelModelPhysicalSpec {
-  code: string;
-  fuelLoadKgM2: number;         // w_0: Ovendry fuel load (kg/m^2)
-  savRatio: number;             // sigma: Surface-area-to-volume ratio (m^-1)
-  bedDepthM: number;            // delta: Fuel bed depth (m)
-  heatContentKjKg: number;      // h: Low heat content (kJ/kg)
-  moistureExtinction: number;   // M_x: Moisture of extinction (fraction)
-  packingRatioBeta: number;     // beta: Packing ratio
-  emissionFactorPm25: number;   // g PM2.5 per kg dry fuel burned
-  colorHex: string;
-}
-
-const FUEL_MODEL_SPECS: Record<FuelModelType, FuelModelPhysicalSpec> = {
-  'Chaparral': {
-    code: 'FBFM-SH7 (Heavy California Chaparral)',
-    fuelLoadKgM2: 3.45,
-    savRatio: 5400,
-    bedDepthM: 1.8,
-    heatContentKjKg: 19800,
-    moistureExtinction: 0.30,
-    packingRatioBeta: 0.0038,
-    emissionFactorPm25: 14.2,
-    colorHex: '#f97316'
-  },
-  'Boreal Forest': {
-    code: 'FBFM-TU5 (High-Load Boreal Conifer Timber)',
-    fuelLoadKgM2: 4.10,
-    savRatio: 4900,
-    bedDepthM: 0.65,
-    heatContentKjKg: 18600,
-    moistureExtinction: 0.25,
-    packingRatioBeta: 0.0115,
-    emissionFactorPm25: 18.5,
-    colorHex: '#10b981'
-  },
-  'Mediterranean Scrub': {
-    code: 'FBFM-SH5 (Garrigue / Maquis Dry Scrub)',
-    fuelLoadKgM2: 2.65,
-    savRatio: 6100,
-    bedDepthM: 1.3,
-    heatContentKjKg: 19400,
-    moistureExtinction: 0.28,
-    packingRatioBeta: 0.0041,
-    emissionFactorPm25: 13.0,
-    colorHex: '#eab308'
-  },
-  'Eucalyptus Bush': {
-    code: 'FBFM-SB4 (Sclerophyll Eucalyptus Stringybark)',
-    fuelLoadKgM2: 3.90,
-    savRatio: 5800,
-    bedDepthM: 1.5,
-    heatContentKjKg: 20400,
-    moistureExtinction: 0.24,
-    packingRatioBeta: 0.0052,
-    emissionFactorPm25: 16.8,
-    colorHex: '#ef4444'
-  },
-  'Savanna Grassland': {
-    code: 'FBFM-GR7 (Dry Tropical Tall Savanna Grass)',
-    fuelLoadKgM2: 1.45,
-    savRatio: 7200,
-    bedDepthM: 0.9,
-    heatContentKjKg: 18000,
-    moistureExtinction: 0.18,
-    packingRatioBeta: 0.0029,
-    emissionFactorPm25: 9.8,
-    colorHex: '#f59e0b'
-  },
-  'Tropical Rainforest': {
-    code: 'FBFM-TL9 (Broadleaf Canopy & Slash Litter)',
-    fuelLoadKgM2: 3.20,
-    savRatio: 4200,
-    bedDepthM: 0.45,
-    heatContentKjKg: 18200,
-    moistureExtinction: 0.35,
-    packingRatioBeta: 0.0140,
-    emissionFactorPm25: 19.4,
-    colorHex: '#84cc16'
-  }
-};
-
-export const HISTORIC_LOOKOUT_TOWERS: LookoutTower[] = [
-  {
-    id: 'TWR-TAMALPAIS',
-    name: 'East Peak Fire Lookout',
-    region: 'Mount Tamalpais, Marin CA',
-    latitude: 37.9235,
-    longitude: -122.5965,
-    elevationFt: 2571,
-    established: 1934,
-    status: 'ACTIVE_STAFFED'
-  },
-  {
-    id: 'TWR-BUCK-ROCK',
-    name: 'Buck Rock Lookout',
-    region: 'Sequoia National Forest, CA',
-    latitude: 36.7328,
-    longitude: -118.8617,
-    elevationFt: 8502,
-    established: 1923,
-    status: 'ACTIVE_STAFFED'
-  },
-  {
-    id: 'TWR-BLACK-MTN',
-    name: 'Black Mountain Lookout',
-    region: 'San Diego County, CA',
-    latitude: 33.155,
-    longitude: -116.821,
-    elevationFt: 4048,
-    established: 1926,
-    status: 'ACTIVE_STAFFED'
-  },
-  {
-    id: 'TWR-DEVILS-HEAD',
-    name: 'Devils Head Lookout',
-    region: 'Pike National Forest, Colorado',
-    latitude: 39.2589,
-    longitude: -105.1011,
-    elevationFt: 9748,
-    established: 1912,
-    status: 'HISTORIC_PRESERVED'
-  },
-  {
-    id: 'TWR-SIERRA-BUTTES',
-    name: 'Sierra Buttes Lookout',
-    region: 'Tahoe National Forest, CA',
-    latitude: 39.5936,
-    longitude: -120.6403,
-    elevationFt: 8591,
-    established: 1915,
-    status: 'HISTORIC_PRESERVED'
-  },
-  {
-    id: 'TWR-PIC-DU-MIDI',
-    name: 'Pic du Midi de Bigorre',
-    region: 'Hautes-Pyrénées, France',
-    latitude: 42.9369,
-    longitude: 0.1411,
-    elevationFt: 9439,
-    established: 1882,
-    status: 'AUTOMATED_OPTICAL'
-  }
-];
-
-class LookoutSoundEngine {
-  private ctx: AudioContext | null = null;
-  private noiseNode: AudioBufferSourceNode | null = null;
-  private noiseGain: GainNode | null = null;
-  private rumbleOsc: OscillatorNode | null = null;
-  private rumbleGain: GainNode | null = null;
-  public enabled: boolean = false;
-
-  private initCtx() {
-    if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
-  }
-
-  public toggle(): boolean {
-    this.enabled = !this.enabled;
-    if (this.enabled) {
-      this.initCtx();
-      this.startAmbient();
-      this.playSquelch();
-    } else {
-      this.stopAmbient();
-    }
-    return this.enabled;
-  }
-
-  public playSquelch() {
-    if (!this.enabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-    try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1750, this.ctx.currentTime);
-      filter.Q.setValueAtTime(3.5, this.ctx.currentTime);
-
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(780, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.07);
-
-      gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
-
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.09);
-    } catch {}
-  }
-
-  public playKeyClick() {
-    if (!this.enabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-    try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1100, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.025);
-      gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.032);
-    } catch {}
-  }
-
-  public playVlatRadio() {
-    if (!this.enabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-    try {
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.setValueAtTime(1320, now + 0.08);
-
-      gain.gain.setValueAtTime(0.04, now);
-      gain.gain.setValueAtTime(0.04, now + 0.16);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.23);
-    } catch {}
-  }
-
-  public updateThermalPower(frpMw: number) {
-    if (!this.enabled || !this.ctx || !this.rumbleGain || !this.rumbleOsc) return;
-    try {
-      const targetFreq = 42 + Math.min(48, (frpMw / 3200) * 45);
-      const targetGain = 0.007 + Math.min(0.028, (frpMw / 3200) * 0.025);
-      this.rumbleOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.2);
-      this.rumbleGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.2);
-    } catch {}
-  }
-
-  private startAmbient() {
-    if (!this.ctx) return;
-    try {
-      const bufferSize = this.ctx.sampleRate * 2;
-      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      let last = 0.0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        data[i] = (last + 0.02 * white) / 1.02;
-        last = data[i];
-      }
-
-      this.noiseNode = this.ctx.createBufferSource();
-      this.noiseNode.buffer = buffer;
-      this.noiseNode.loop = true;
-
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 1150;
-      filter.Q.value = 1.1;
-
-      this.noiseGain = this.ctx.createGain();
-      this.noiseGain.gain.setValueAtTime(0.012, this.ctx.currentTime);
-
-      this.noiseNode.connect(filter);
-      filter.connect(this.noiseGain);
-      this.noiseGain.connect(this.ctx.destination);
-      this.noiseNode.start();
-
-      this.rumbleOsc = this.ctx.createOscillator();
-      this.rumbleOsc.type = 'triangle';
-      this.rumbleOsc.frequency.setValueAtTime(52, this.ctx.currentTime);
-
-      this.rumbleGain = this.ctx.createGain();
-      this.rumbleGain.gain.setValueAtTime(0.008, this.ctx.currentTime);
-
-      this.rumbleOsc.connect(this.rumbleGain);
-      this.rumbleGain.connect(this.ctx.destination);
-      this.rumbleOsc.start();
-    } catch {}
-  }
-
-  private stopAmbient() {
-    try {
-      this.noiseNode?.stop();
-      this.noiseNode?.disconnect();
-      this.noiseNode = null;
-      this.rumbleOsc?.stop();
-      this.rumbleOsc?.disconnect();
-      this.rumbleOsc = null;
-    } catch {}
-  }
-}
-
-export const lookoutSound = new LookoutSoundEngine();
-
-const THEATER_PRESETS: Record<
+import { lookoutSound } from './lib/audio';
+import {
+  HISTORIC_LOOKOUT_TOWERS,
+  NVIM_THEMES,
+  THEATER_BUTTONS,
+  THEATER_PRESETS,
+  THEATER_TOPO_RIDGES,
+  WORLD_LANDMASS_POLYGONS
+} from './lib/constants';
+import {
+  parseFirmsPayload,
+  serializeIncidentsToCsv,
+  serializeIncidentsToGeoJson
+} from './lib/firmsParser';
+import {
+  computeAzimuthBearing,
+  computeTriangulation,
+  destinationCoordinate,
+  formatBearingDms,
+  formatBearingMils,
+  formatBearingQuadrant,
+  formatCoordinatesHemisphere
+} from './lib/geodesy';
+import { INITIAL_FIRMS_INCIDENTS } from './lib/incidents';
+import {
+  FUEL_MODEL_SPECS,
+  computeThermalClusters,
+  evaluateGaussianPlumeAt,
+  getEffectiveSlopeDeg,
+  getEffectiveWindBearingDeg,
+  getEffectiveWindSpeedMps,
+  simulateIncidentPhysics
+} from './lib/physics';
+import type {
+  ActiveBufferTab,
+  FuelModelType,
+  GISFilterState,
+  IncidentPhysicsSimulation,
+  LayerVisibility,
+  NvimThemeId,
+  NvimThemePalette,
+  PhysicsOverrides,
+  PlumeConcentrationPoint,
   TheaterRegion,
-  { label: string; centerLat: number; centerLon: number; zoom: number; subtitle: string }
-> = {
-  GLOBAL: {
-    label: 'Global Command',
-    centerLat: 16,
-    centerLon: 8,
-    zoom: 1.0,
-    subtitle: 'Planetary FIRMS Thermal Constellation'
-  },
-  CALIFORNIA: {
-    label: 'California / West US',
-    centerLat: 37.8,
-    centerLon: -120.5,
-    zoom: 5.8,
-    subtitle: 'Sierra Nevada & Coast Range Chaparral'
-  },
-  MEDITERRANEAN: {
-    label: 'Mediterranean Basin',
-    centerLat: 38.2,
-    centerLon: 20.5,
-    zoom: 5.4,
-    subtitle: 'Aegean, Peloponnese & Iberian Scrub'
-  },
-  BOREAL_CANADA: {
-    label: 'Canadian Boreal',
-    centerLat: 58.2,
-    centerLon: -115.0,
-    zoom: 5.0,
-    subtitle: 'Athabasca & Great Slave Taiga Shield'
-  },
-  AUSTRALIA: {
-    label: 'SE Australia Bush',
-    centerLat: -34.5,
-    centerLon: 149.2,
-    zoom: 5.5,
-    subtitle: 'Blue Mountains & Victorian Alps Eucalyptus'
-  },
-  AMAZONIA: {
-    label: 'Amazonia / Cerrado',
-    centerLat: -9.8,
-    centerLon: -56.5,
-    zoom: 4.8,
-    subtitle: 'Mato Grosso & Pará Deforestation Arc'
-  },
-  SAVANNA_AFRICA: {
-    label: 'Central African Savanna',
-    centerLat: -12.2,
-    centerLon: 20.5,
-    zoom: 5.0,
-    subtitle: 'Angola & Zambezi Miombo Grasslands'
-  }
+  ThermalCluster,
+  WildfireIncident
+} from './lib/types';
+
+const DEFAULT_LAYERS: LayerVisibility = {
+  plumeCones: true,
+  clusterHulls: true,
+  pulseRings: true,
+  thermalHeatmap: true,
+  windVectors: true,
+  graticuleGrid: true
 };
 
 // ============================================================================
-// 3. SYNTHETIC HIGH-FIDELITY NASA FIRMS + EONET DATASET (56 INCIDENTS)
-// ============================================================================
-// Geographically clustered so proximate points (<15km) tessellate into active
-// thermal front polygons while spanning all 6 critical global fire regimes.
-
-const INITIAL_FIRMS_INCIDENTS: WildfireIncident[] = [
-  // --- CLUSTER 1: NORTHERN CALIFORNIA (Mendocino / Plumas Complex - <15km apart) ---
-  {
-    incident_id: 'FIRMS-CA-001',
-    name: 'Diablo Ridge Complex - Alpha Front',
-    region: 'CALIFORNIA',
-    latitude: 39.82,
-    longitude: -121.44,
-    frp: 485.6,
-    brightness_temp_k: 418.4,
-    confidence_pct: 99,
-    detection_utc: '2025-05-11T04:42:00Z',
-    hours_ago: 1.5,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 12,
-    slope_deg: 28,
-    ambient_humidity_pct: 14,
-    population_at_risk: 28400,
-    wind_vector: { speed_mps: 11.8, bearing_deg: 235 }
-  },
-  {
-    incident_id: 'FIRMS-CA-002',
-    name: 'Diablo Ridge Complex - Feather Canyon',
-    region: 'CALIFORNIA',
-    latitude: 39.88,
-    longitude: -121.38,
-    frp: 392.0,
-    brightness_temp_k: 399.2,
-    confidence_pct: 97,
-    detection_utc: '2025-05-11T04:42:00Z',
-    hours_ago: 1.5,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 15,
-    slope_deg: 31,
-    ambient_humidity_pct: 15,
-    population_at_risk: 19200,
-    wind_vector: { speed_mps: 12.4, bearing_deg: 240 }
-  },
-  {
-    incident_id: 'FIRMS-CA-003',
-    name: 'Diablo Ridge Complex - Bucks Summit',
-    region: 'CALIFORNIA',
-    latitude: 39.77,
-    longitude: -121.36,
-    frp: 318.4,
-    brightness_temp_k: 386.7,
-    confidence_pct: 94,
-    detection_utc: '2025-05-11T03:15:00Z',
-    hours_ago: 3.0,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 20,
-    slope_deg: 24,
-    ambient_humidity_pct: 16,
-    population_at_risk: 14500,
-    wind_vector: { speed_mps: 10.9, bearing_deg: 232 }
-  },
-  {
-    incident_id: 'FIRMS-CA-004',
-    name: 'Diablo Ridge Complex - Oroville Foothills',
-    region: 'CALIFORNIA',
-    latitude: 39.74,
-    longitude: -121.48,
-    frp: 274.1,
-    brightness_temp_k: 374.5,
-    confidence_pct: 92,
-    detection_utc: '2025-05-11T02:50:00Z',
-    hours_ago: 3.5,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 22,
-    slope_deg: 19,
-    ambient_humidity_pct: 17,
-    population_at_risk: 34100,
-    wind_vector: { speed_mps: 11.2, bearing_deg: 238 }
-  },
-
-  // --- CLUSTER 2: SOUTHERN CALIFORNIA (Santa Ynez / Angeles Crest Cluster) ---
-  {
-    incident_id: 'FIRMS-CA-005',
-    name: 'Santa Ynez Sundowner Fire - East',
-    region: 'CALIFORNIA',
-    latitude: 34.52,
-    longitude: -119.78,
-    frp: 412.8,
-    brightness_temp_k: 408.1,
-    confidence_pct: 98,
-    detection_utc: '2025-05-11T05:10:00Z',
-    hours_ago: 1.1,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 8,
-    slope_deg: 34,
-    ambient_humidity_pct: 11,
-    population_at_risk: 62000,
-    wind_vector: { speed_mps: 14.5, bearing_deg: 195 }
-  },
-  {
-    incident_id: 'FIRMS-CA-006',
-    name: 'Santa Ynez Sundowner Fire - Montecito Ridge',
-    region: 'CALIFORNIA',
-    latitude: 34.48,
-    longitude: -119.69,
-    frp: 356.2,
-    brightness_temp_k: 395.0,
-    confidence_pct: 96,
-    detection_utc: '2025-05-11T05:10:00Z',
-    hours_ago: 1.1,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 10,
-    slope_deg: 32,
-    ambient_humidity_pct: 12,
-    population_at_risk: 54800,
-    wind_vector: { speed_mps: 13.8, bearing_deg: 190 }
-  },
-  {
-    incident_id: 'FIRMS-CA-007',
-    name: 'Santa Ynez Sundowner Fire - Gibraltar Dam',
-    region: 'CALIFORNIA',
-    latitude: 34.56,
-    longitude: -119.71,
-    frp: 245.9,
-    brightness_temp_k: 369.4,
-    confidence_pct: 91,
-    detection_utc: '2025-05-11T01:20:00Z',
-    hours_ago: 5.0,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 18,
-    slope_deg: 27,
-    ambient_humidity_pct: 14,
-    population_at_risk: 29000,
-    wind_vector: { speed_mps: 12.1, bearing_deg: 198 }
-  },
-  {
-    incident_id: 'FIRMS-CA-008',
-    name: 'San Gabriel Canyon Brush Fire',
-    region: 'CALIFORNIA',
-    latitude: 34.26,
-    longitude: -117.88,
-    frp: 198.4,
-    brightness_temp_k: 362.0,
-    confidence_pct: 89,
-    detection_utc: '2025-05-10T21:00:00Z',
-    hours_ago: 9.2,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 35,
-    slope_deg: 29,
-    ambient_humidity_pct: 19,
-    population_at_risk: 78500,
-    wind_vector: { speed_mps: 9.4, bearing_deg: 215 }
-  },
-  {
-    incident_id: 'FIRMS-CA-009',
-    name: 'Clear Lake Mendocino Complex',
-    region: 'CALIFORNIA',
-    latitude: 39.12,
-    longitude: -122.74,
-    frp: 164.0,
-    brightness_temp_k: 354.2,
-    confidence_pct: 86,
-    detection_utc: '2025-05-10T14:30:00Z',
-    hours_ago: 16.0,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 48,
-    slope_deg: 21,
-    ambient_humidity_pct: 22,
-    population_at_risk: 16300,
-    wind_vector: { speed_mps: 7.8, bearing_deg: 110 }
-  },
-  {
-    incident_id: 'FIRMS-CA-010',
-    name: 'Klamath Basin Timber Anomaly',
-    region: 'CALIFORNIA',
-    latitude: 41.58,
-    longitude: -123.12,
-    frp: 289.5,
-    brightness_temp_k: 381.0,
-    confidence_pct: 93,
-    detection_utc: '2025-05-09T22:15:00Z',
-    hours_ago: 32.0,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 28,
-    slope_deg: 26,
-    ambient_humidity_pct: 24,
-    population_at_risk: 8400,
-    wind_vector: { speed_mps: 8.6, bearing_deg: 65 }
-  },
-
-  // --- CLUSTER 3: MEDITERRANEAN BASIN (Attica / Evia Greece Cluster & Iberia) ---
-  {
-    incident_id: 'FIRMS-MED-001',
-    name: 'Mount Penteli Attica Front - North',
-    region: 'MEDITERRANEAN',
-    latitude: 38.08,
-    longitude: 23.88,
-    frp: 428.0,
-    brightness_temp_k: 411.5,
-    confidence_pct: 99,
-    detection_utc: '2025-05-11T04:55:00Z',
-    hours_ago: 1.3,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 14,
-    slope_deg: 27,
-    ambient_humidity_pct: 16,
-    population_at_risk: 112000,
-    wind_vector: { speed_mps: 13.6, bearing_deg: 165 }
-  },
-  {
-    incident_id: 'FIRMS-MED-002',
-    name: 'Mount Penteli Attica Front - Marathon Ridge',
-    region: 'MEDITERRANEAN',
-    latitude: 38.14,
-    longitude: 23.94,
-    frp: 345.2,
-    brightness_temp_k: 392.8,
-    confidence_pct: 96,
-    detection_utc: '2025-05-11T04:55:00Z',
-    hours_ago: 1.3,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 18,
-    slope_deg: 25,
-    ambient_humidity_pct: 17,
-    population_at_risk: 84000,
-    wind_vector: { speed_mps: 13.1, bearing_deg: 168 }
-  },
-  {
-    incident_id: 'FIRMS-MED-003',
-    name: 'Mount Penteli Attica Front - Dionisos Spur',
-    region: 'MEDITERRANEAN',
-    latitude: 38.11,
-    longitude: 23.81,
-    frp: 298.7,
-    brightness_temp_k: 384.1,
-    confidence_pct: 95,
-    detection_utc: '2025-05-11T02:10:00Z',
-    hours_ago: 4.1,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 22,
-    slope_deg: 23,
-    ambient_humidity_pct: 18,
-    population_at_risk: 95000,
-    wind_vector: { speed_mps: 12.4, bearing_deg: 162 }
-  },
-  {
-    incident_id: 'FIRMS-MED-004',
-    name: 'North Evia Pine & Maquis Complex - Limni',
-    region: 'MEDITERRANEAN',
-    latitude: 38.78,
-    longitude: 23.32,
-    frp: 312.5,
-    brightness_temp_k: 389.0,
-    confidence_pct: 94,
-    detection_utc: '2025-05-10T23:40:00Z',
-    hours_ago: 6.8,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 25,
-    slope_deg: 29,
-    ambient_humidity_pct: 19,
-    population_at_risk: 24500,
-    wind_vector: { speed_mps: 10.8, bearing_deg: 175 }
-  },
-  {
-    incident_id: 'FIRMS-MED-005',
-    name: 'North Evia Complex - Rovies Ridge',
-    region: 'MEDITERRANEAN',
-    latitude: 38.83,
-    longitude: 23.25,
-    frp: 268.0,
-    brightness_temp_k: 376.4,
-    confidence_pct: 91,
-    detection_utc: '2025-05-10T23:40:00Z',
-    hours_ago: 6.8,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 30,
-    slope_deg: 26,
-    ambient_humidity_pct: 20,
-    population_at_risk: 18900,
-    wind_vector: { speed_mps: 10.2, bearing_deg: 172 }
-  },
-  {
-    incident_id: 'FIRMS-MED-006',
-    name: 'Peloponnese Ilia Garrigue Fire',
-    region: 'MEDITERRANEAN',
-    latitude: 37.65,
-    longitude: 21.62,
-    frp: 215.4,
-    brightness_temp_k: 368.2,
-    confidence_pct: 88,
-    detection_utc: '2025-05-10T16:00:00Z',
-    hours_ago: 14.5,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 42,
-    slope_deg: 20,
-    ambient_humidity_pct: 23,
-    population_at_risk: 31200,
-    wind_vector: { speed_mps: 9.1, bearing_deg: 150 }
-  },
-  {
-    incident_id: 'FIRMS-MED-007',
-    name: 'Antalya Taurus Foothills Anomaly',
-    region: 'MEDITERRANEAN',
-    latitude: 36.88,
-    longitude: 31.42,
-    frp: 334.0,
-    brightness_temp_k: 391.2,
-    confidence_pct: 95,
-    detection_utc: '2025-05-10T11:20:00Z',
-    hours_ago: 19.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 31,
-    slope_deg: 30,
-    ambient_humidity_pct: 17,
-    population_at_risk: 46000,
-    wind_vector: { speed_mps: 11.4, bearing_deg: 140 }
-  },
-  {
-    incident_id: 'FIRMS-MED-008',
-    name: 'Calabria Aspromonte Ridge Fire',
-    region: 'MEDITERRANEAN',
-    latitude: 38.16,
-    longitude: 15.92,
-    frp: 184.6,
-    brightness_temp_k: 359.8,
-    confidence_pct: 85,
-    detection_utc: '2025-05-09T18:00:00Z',
-    hours_ago: 36.5,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 55,
-    slope_deg: 28,
-    ambient_humidity_pct: 25,
-    population_at_risk: 27400,
-    wind_vector: { speed_mps: 8.3, bearing_deg: 125 }
-  },
-  {
-    incident_id: 'FIRMS-MED-009',
-    name: 'Chefchaouen Rif Scrub Anomaly',
-    region: 'MEDITERRANEAN',
-    latitude: 35.17,
-    longitude: -5.26,
-    frp: 229.0,
-    brightness_temp_k: 371.0,
-    confidence_pct: 90,
-    detection_utc: '2025-05-08T15:00:00Z',
-    hours_ago: 63.0,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 68,
-    slope_deg: 26,
-    ambient_humidity_pct: 21,
-    population_at_risk: 22800,
-    wind_vector: { speed_mps: 9.7, bearing_deg: 280 }
-  },
-
-  // --- CLUSTER 4: CANADIAN BOREAL SHIELD (Wood Buffalo / Athabasca Cluster) ---
-  {
-    incident_id: 'FIRMS-BOR-001',
-    name: 'Athabasca Crown Complex - Sector 1',
-    region: 'BOREAL_CANADA',
-    latitude: 58.62,
-    longitude: -111.45,
-    frp: 612.4,
-    brightness_temp_k: 434.2,
-    confidence_pct: 100,
-    detection_utc: '2025-05-11T05:30:00Z',
-    hours_ago: 0.8,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 5,
-    slope_deg: 9,
-    ambient_humidity_pct: 18,
-    population_at_risk: 4200,
-    wind_vector: { speed_mps: 13.2, bearing_deg: 105 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-002',
-    name: 'Athabasca Crown Complex - Birch River',
-    region: 'BOREAL_CANADA',
-    latitude: 58.69,
-    longitude: -111.34,
-    frp: 548.0,
-    brightness_temp_k: 425.8,
-    confidence_pct: 99,
-    detection_utc: '2025-05-11T05:30:00Z',
-    hours_ago: 0.8,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 5,
-    slope_deg: 8,
-    ambient_humidity_pct: 19,
-    population_at_risk: 3100,
-    wind_vector: { speed_mps: 12.9, bearing_deg: 108 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-003',
-    name: 'Athabasca Crown Complex - Lake Claire Flank',
-    region: 'BOREAL_CANADA',
-    latitude: 58.56,
-    longitude: -111.55,
-    frp: 472.3,
-    brightness_temp_k: 414.0,
-    confidence_pct: 98,
-    detection_utc: '2025-05-11T04:15:00Z',
-    hours_ago: 2.0,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 8,
-    slope_deg: 7,
-    ambient_humidity_pct: 20,
-    population_at_risk: 2800,
-    wind_vector: { speed_mps: 12.4, bearing_deg: 102 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-004',
-    name: 'High Level Zama Taiga Complex - West',
-    region: 'BOREAL_CANADA',
-    latitude: 58.75,
-    longitude: -118.65,
-    frp: 389.0,
-    brightness_temp_k: 398.5,
-    confidence_pct: 96,
-    detection_utc: '2025-05-11T01:45:00Z',
-    hours_ago: 4.5,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 15,
-    slope_deg: 11,
-    ambient_humidity_pct: 21,
-    population_at_risk: 5600,
-    wind_vector: { speed_mps: 10.6, bearing_deg: 95 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-005',
-    name: 'High Level Zama Taiga Complex - East',
-    region: 'BOREAL_CANADA',
-    latitude: 58.79,
-    longitude: -118.51,
-    frp: 342.1,
-    brightness_temp_k: 390.1,
-    confidence_pct: 94,
-    detection_utc: '2025-05-11T01:45:00Z',
-    hours_ago: 4.5,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 15,
-    slope_deg: 10,
-    ambient_humidity_pct: 22,
-    population_at_risk: 4900,
-    wind_vector: { speed_mps: 10.4, bearing_deg: 98 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-006',
-    name: 'Great Slave Shield Lightning Complex',
-    region: 'BOREAL_CANADA',
-    latitude: 61.42,
-    longitude: -114.28,
-    frp: 418.7,
-    brightness_temp_k: 405.3,
-    confidence_pct: 97,
-    detection_utc: '2025-05-10T19:30:00Z',
-    hours_ago: 11.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 12,
-    slope_deg: 6,
-    ambient_humidity_pct: 23,
-    population_at_risk: 19500,
-    wind_vector: { speed_mps: 11.1, bearing_deg: 120 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-007',
-    name: 'Peace River Muskeg Burn',
-    region: 'BOREAL_CANADA',
-    latitude: 56.24,
-    longitude: -117.32,
-    frp: 235.6,
-    brightness_temp_k: 369.8,
-    confidence_pct: 89,
-    detection_utc: '2025-05-09T20:00:00Z',
-    hours_ago: 34.0,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 40,
-    slope_deg: 12,
-    ambient_humidity_pct: 26,
-    population_at_risk: 11200,
-    wind_vector: { speed_mps: 8.5, bearing_deg: 88 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-008',
-    name: 'Yakutia Lena Basin Permafrost Fire',
-    region: 'BOREAL_CANADA',
-    latitude: 62.85,
-    longitude: 129.40,
-    frp: 465.0,
-    brightness_temp_k: 412.6,
-    confidence_pct: 98,
-    detection_utc: '2025-05-10T12:00:00Z',
-    hours_ago: 18.5,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 0,
-    slope_deg: 8,
-    ambient_humidity_pct: 20,
-    population_at_risk: 14800,
-    wind_vector: { speed_mps: 11.8, bearing_deg: 75 }
-  },
-
-  // --- CLUSTER 5: SE AUSTRALIA EUCALYPTUS BUSH (Blue Mountains / Wollemi Cluster) ---
-  {
-    incident_id: 'FIRMS-AUS-001',
-    name: 'Gospers Mountain Megafire - Crown Ridge',
-    region: 'AUSTRALIA',
-    latitude: -33.18,
-    longitude: 150.42,
-    frp: 538.9,
-    brightness_temp_k: 424.0,
-    confidence_pct: 99,
-    detection_utc: '2025-05-11T05:00:00Z',
-    hours_ago: 1.2,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 10,
-    slope_deg: 29,
-    ambient_humidity_pct: 12,
-    population_at_risk: 48500,
-    wind_vector: { speed_mps: 14.2, bearing_deg: 115 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-002',
-    name: 'Gospers Mountain Megafire - Colo Gorge',
-    region: 'AUSTRALIA',
-    latitude: -33.24,
-    longitude: 150.51,
-    frp: 462.4,
-    brightness_temp_k: 413.1,
-    confidence_pct: 98,
-    detection_utc: '2025-05-11T05:00:00Z',
-    hours_ago: 1.2,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 12,
-    slope_deg: 33,
-    ambient_humidity_pct: 13,
-    population_at_risk: 59000,
-    wind_vector: { speed_mps: 13.9, bearing_deg: 118 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-003',
-    name: 'Gospers Mountain Megafire - Bilpin Spur',
-    region: 'AUSTRALIA',
-    latitude: -33.29,
-    longitude: 150.45,
-    frp: 384.0,
-    brightness_temp_k: 397.6,
-    confidence_pct: 96,
-    detection_utc: '2025-05-11T03:30:00Z',
-    hours_ago: 2.7,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 16,
-    slope_deg: 27,
-    ambient_humidity_pct: 14,
-    population_at_risk: 72400,
-    wind_vector: { speed_mps: 13.1, bearing_deg: 112 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-004',
-    name: 'Snowy Valleys Kosciuszko Stringybark Front',
-    region: 'AUSTRALIA',
-    latitude: -36.12,
-    longitude: 148.24,
-    frp: 348.5,
-    brightness_temp_k: 392.0,
-    confidence_pct: 95,
-    detection_utc: '2025-05-10T22:00:00Z',
-    hours_ago: 8.2,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 24,
-    slope_deg: 31,
-    ambient_humidity_pct: 16,
-    population_at_risk: 19800,
-    wind_vector: { speed_mps: 11.7, bearing_deg: 130 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-005',
-    name: 'Snowy Valleys Complex - Tumbarumba Escarpment',
-    region: 'AUSTRALIA',
-    latitude: -36.06,
-    longitude: 148.16,
-    frp: 294.2,
-    brightness_temp_k: 382.4,
-    confidence_pct: 92,
-    detection_utc: '2025-05-10T22:00:00Z',
-    hours_ago: 8.2,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 28,
-    slope_deg: 26,
-    ambient_humidity_pct: 17,
-    population_at_risk: 15400,
-    wind_vector: { speed_mps: 11.2, bearing_deg: 128 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-006',
-    name: 'East Gippsland Mallacoota Coastal Bushfire',
-    region: 'AUSTRALIA',
-    latitude: -37.54,
-    longitude: 149.68,
-    frp: 265.0,
-    brightness_temp_k: 375.9,
-    confidence_pct: 90,
-    detection_utc: '2025-05-09T14:00:00Z',
-    hours_ago: 40.5,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 45,
-    slope_deg: 18,
-    ambient_humidity_pct: 22,
-    population_at_risk: 12600,
-    wind_vector: { speed_mps: 9.8, bearing_deg: 145 }
-  },
-
-  // --- CLUSTER 6: AMAZONIA & CERRADO ARC (Xingu / Novo Progresso Cluster) ---
-  {
-    incident_id: 'FIRMS-AMZ-001',
-    name: 'Serra do Cachimbo Canopy Front - North',
-    region: 'AMAZONIA',
-    latitude: -8.84,
-    longitude: -55.22,
-    frp: 368.4,
-    brightness_temp_k: 396.0,
-    confidence_pct: 97,
-    detection_utc: '2025-05-11T04:10:00Z',
-    hours_ago: 2.1,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Tropical Rainforest',
-    estimated_containment_pct: 5,
-    slope_deg: 6,
-    ambient_humidity_pct: 34,
-    population_at_risk: 14200,
-    wind_vector: { speed_mps: 7.9, bearing_deg: 255 }
-  },
-  {
-    incident_id: 'FIRMS-AMZ-002',
-    name: 'Serra do Cachimbo Canopy Front - BR-163 Corridor',
-    region: 'AMAZONIA',
-    latitude: -8.91,
-    longitude: -55.16,
-    frp: 324.0,
-    brightness_temp_k: 388.2,
-    confidence_pct: 95,
-    detection_utc: '2025-05-11T04:10:00Z',
-    hours_ago: 2.1,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Tropical Rainforest',
-    estimated_containment_pct: 8,
-    slope_deg: 5,
-    ambient_humidity_pct: 35,
-    population_at_risk: 16800,
-    wind_vector: { speed_mps: 8.2, bearing_deg: 258 }
-  },
-  {
-    incident_id: 'FIRMS-AMZ-003',
-    name: 'Serra do Cachimbo - Jamanxim Flank',
-    region: 'AMAZONIA',
-    latitude: -8.79,
-    longitude: -55.30,
-    frp: 279.5,
-    brightness_temp_k: 378.4,
-    confidence_pct: 93,
-    detection_utc: '2025-05-11T01:00:00Z',
-    hours_ago: 5.2,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Tropical Rainforest',
-    estimated_containment_pct: 10,
-    slope_deg: 7,
-    ambient_humidity_pct: 36,
-    population_at_risk: 11500,
-    wind_vector: { speed_mps: 7.5, bearing_deg: 252 }
-  },
-  {
-    incident_id: 'FIRMS-AMZ-004',
-    name: 'Pantanal Corumbá Wetland Peat & Savanna Complex',
-    region: 'AMAZONIA',
-    latitude: -18.92,
-    longitude: -57.48,
-    frp: 405.2,
-    brightness_temp_k: 402.7,
-    confidence_pct: 98,
-    detection_utc: '2025-05-10T20:15:00Z',
-    hours_ago: 10.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 15,
-    slope_deg: 3,
-    ambient_humidity_pct: 22,
-    population_at_risk: 28900,
-    wind_vector: { speed_mps: 10.4, bearing_deg: 210 }
-  },
-  {
-    incident_id: 'FIRMS-AMZ-005',
-    name: 'Pantanal Complex - Paraguay River Bend',
-    region: 'AMAZONIA',
-    latitude: -18.98,
-    longitude: -57.40,
-    frp: 318.9,
-    brightness_temp_k: 386.5,
-    confidence_pct: 94,
-    detection_utc: '2025-05-10T20:15:00Z',
-    hours_ago: 10.0,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 18,
-    slope_deg: 3,
-    ambient_humidity_pct: 23,
-    population_at_risk: 24100,
-    wind_vector: { speed_mps: 10.1, bearing_deg: 214 }
-  },
-  {
-    incident_id: 'FIRMS-AMZ-006',
-    name: 'Rondônia Porto Velho Slash Anomaly',
-    region: 'AMAZONIA',
-    latitude: -9.45,
-    longitude: -63.12,
-    frp: 242.0,
-    brightness_temp_k: 371.8,
-    confidence_pct: 90,
-    detection_utc: '2025-05-09T17:30:00Z',
-    hours_ago: 37.0,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Tropical Rainforest',
-    estimated_containment_pct: 32,
-    slope_deg: 5,
-    ambient_humidity_pct: 38,
-    population_at_risk: 33400,
-    wind_vector: { speed_mps: 6.8, bearing_deg: 270 }
-  },
-  {
-    incident_id: 'FIRMS-AMZ-007',
-    name: 'Santa Cruz Chiquitano Dry Forest Fire',
-    region: 'AMAZONIA',
-    latitude: -16.75,
-    longitude: -60.85,
-    frp: 295.4,
-    brightness_temp_k: 383.1,
-    confidence_pct: 92,
-    detection_utc: '2025-05-07T19:00:00Z',
-    hours_ago: 83.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Tropical Rainforest',
-    estimated_containment_pct: 50,
-    slope_deg: 8,
-    ambient_humidity_pct: 28,
-    population_at_risk: 19700,
-    wind_vector: { speed_mps: 8.9, bearing_deg: 195 }
-  },
-
-  // --- CLUSTER 7: CENTRAL AFRICAN MIOMBO SAVANNA (Bié Plateau / Zambezi Cluster) ---
-  {
-    incident_id: 'FIRMS-AFR-001',
-    name: 'Cuando Cubango Miombo Front - North',
-    region: 'SAVANNA_AFRICA',
-    latitude: -14.62,
-    longitude: 18.84,
-    frp: 312.0,
-    brightness_temp_k: 387.4,
-    confidence_pct: 96,
-    detection_utc: '2025-05-11T03:50:00Z',
-    hours_ago: 2.4,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 10,
-    slope_deg: 5,
-    ambient_humidity_pct: 19,
-    population_at_risk: 21500,
-    wind_vector: { speed_mps: 9.8, bearing_deg: 285 }
-  },
-  {
-    incident_id: 'FIRMS-AFR-002',
-    name: 'Cuando Cubango Miombo Front - Cuito Valley',
-    region: 'SAVANNA_AFRICA',
-    latitude: -14.68,
-    longitude: 18.92,
-    frp: 276.4,
-    brightness_temp_k: 379.2,
-    confidence_pct: 94,
-    detection_utc: '2025-05-11T03:50:00Z',
-    hours_ago: 2.4,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 12,
-    slope_deg: 6,
-    ambient_humidity_pct: 20,
-    population_at_risk: 18400,
-    wind_vector: { speed_mps: 9.5, bearing_deg: 282 }
-  },
-  {
-    incident_id: 'FIRMS-AFR-003',
-    name: 'Cuando Cubango Miombo Front - Menongue Spur',
-    region: 'SAVANNA_AFRICA',
-    latitude: -14.57,
-    longitude: 18.78,
-    frp: 238.1,
-    brightness_temp_k: 370.5,
-    confidence_pct: 91,
-    detection_utc: '2025-05-10T23:10:00Z',
-    hours_ago: 7.0,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 18,
-    slope_deg: 5,
-    ambient_humidity_pct: 21,
-    population_at_risk: 26300,
-    wind_vector: { speed_mps: 9.2, bearing_deg: 288 }
-  },
-  {
-    incident_id: 'FIRMS-AFR-004',
-    name: 'Upper Zambezi Floodplain Grass Fire',
-    region: 'SAVANNA_AFRICA',
-    latitude: -13.25,
-    longitude: 23.14,
-    frp: 195.8,
-    brightness_temp_k: 361.9,
-    confidence_pct: 88,
-    detection_utc: '2025-05-10T15:40:00Z',
-    hours_ago: 14.8,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 35,
-    slope_deg: 4,
-    ambient_humidity_pct: 23,
-    population_at_risk: 15900,
-    wind_vector: { speed_mps: 8.6, bearing_deg: 275 }
-  },
-  {
-    incident_id: 'FIRMS-AFR-005',
-    name: 'Katanga Upemba Savanna Complex',
-    region: 'SAVANNA_AFRICA',
-    latitude: -8.92,
-    longitude: 26.35,
-    frp: 254.0,
-    brightness_temp_k: 373.4,
-    confidence_pct: 92,
-    detection_utc: '2025-05-08T12:00:00Z',
-    hours_ago: 66.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Savanna Grassland',
-    estimated_containment_pct: 50,
-    slope_deg: 7,
-    ambient_humidity_pct: 24,
-    population_at_risk: 31000,
-    wind_vector: { speed_mps: 8.1, bearing_deg: 295 }
-  },
-
-  // --- ADDITIONAL GLOBAL TELEMETRY POINTS FOR >52 ACTIVE DETECTIONS ---
-  {
-    incident_id: 'FIRMS-CA-011',
-    name: 'Inyo Owens Valley Brush Fire',
-    region: 'CALIFORNIA',
-    latitude: 36.85,
-    longitude: -118.22,
-    frp: 178.2,
-    brightness_temp_k: 358.1,
-    confidence_pct: 87,
-    detection_utc: '2025-05-06T22:00:00Z',
-    hours_ago: 104.0,
-    satellite_sensor: 'MODIS Terra',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 74,
-    slope_deg: 22,
-    ambient_humidity_pct: 16,
-    population_at_risk: 9200,
-    wind_vector: { speed_mps: 8.9, bearing_deg: 350 }
-  },
-  {
-    incident_id: 'FIRMS-CA-012',
-    name: 'Los Padres Ventana Ridge Anomaly',
-    region: 'CALIFORNIA',
-    latitude: 36.22,
-    longitude: -121.68,
-    frp: 264.5,
-    brightness_temp_k: 375.2,
-    confidence_pct: 93,
-    detection_utc: '2025-05-10T18:30:00Z',
-    hours_ago: 12.0,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Chaparral',
-    estimated_containment_pct: 30,
-    slope_deg: 33,
-    ambient_humidity_pct: 18,
-    population_at_risk: 14700,
-    wind_vector: { speed_mps: 10.5, bearing_deg: 145 }
-  },
-  {
-    incident_id: 'FIRMS-MED-010',
-    name: 'Algarve Monchique Cork Oak & Scrub Fire',
-    region: 'MEDITERRANEAN',
-    latitude: 37.32,
-    longitude: -8.56,
-    frp: 292.0,
-    brightness_temp_k: 382.7,
-    confidence_pct: 94,
-    detection_utc: '2025-05-10T21:15:00Z',
-    hours_ago: 9.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 27,
-    slope_deg: 24,
-    ambient_humidity_pct: 18,
-    population_at_risk: 38200,
-    wind_vector: { speed_mps: 11.2, bearing_deg: 135 }
-  },
-  {
-    incident_id: 'FIRMS-MED-011',
-    name: 'Sardinia Nuoro Supramonte Brush Fire',
-    region: 'MEDITERRANEAN',
-    latitude: 40.25,
-    longitude: 9.42,
-    frp: 218.4,
-    brightness_temp_k: 367.0,
-    confidence_pct: 89,
-    detection_utc: '2025-05-07T14:20:00Z',
-    hours_ago: 88.0,
-    satellite_sensor: 'MODIS Aqua',
-    fuel_type: 'Mediterranean Scrub',
-    estimated_containment_pct: 62,
-    slope_deg: 25,
-    ambient_humidity_pct: 22,
-    population_at_risk: 21400,
-    wind_vector: { speed_mps: 9.6, bearing_deg: 115 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-009',
-    name: 'La Ronge Churchill River Boreal Fire',
-    region: 'BOREAL_CANADA',
-    latitude: 55.35,
-    longitude: -105.28,
-    frp: 356.8,
-    brightness_temp_k: 394.1,
-    confidence_pct: 95,
-    detection_utc: '2025-05-10T23:00:00Z',
-    hours_ago: 7.2,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 18,
-    slope_deg: 7,
-    ambient_humidity_pct: 21,
-    population_at_risk: 7800,
-    wind_vector: { speed_mps: 10.9, bearing_deg: 112 }
-  },
-  {
-    incident_id: 'FIRMS-BOR-010',
-    name: 'Chibougamau Quebec Taiga Anomaly',
-    region: 'BOREAL_CANADA',
-    latitude: 50.12,
-    longitude: -74.38,
-    frp: 310.2,
-    brightness_temp_k: 385.0,
-    confidence_pct: 93,
-    detection_utc: '2025-05-08T19:00:00Z',
-    hours_ago: 59.0,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Boreal Forest',
-    estimated_containment_pct: 45,
-    slope_deg: 9,
-    ambient_humidity_pct: 25,
-    population_at_risk: 9400,
-    wind_vector: { speed_mps: 9.8, bearing_deg: 130 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-007',
-    name: 'Kangaroo Island Flinders Chase Bushfire',
-    region: 'AUSTRALIA',
-    latitude: -35.88,
-    longitude: 136.75,
-    frp: 282.6,
-    brightness_temp_k: 380.2,
-    confidence_pct: 92,
-    detection_utc: '2025-05-09T11:00:00Z',
-    hours_ago: 43.0,
-    satellite_sensor: 'VIIRS SNPP',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 40,
-    slope_deg: 16,
-    ambient_humidity_pct: 20,
-    population_at_risk: 6200,
-    wind_vector: { speed_mps: 11.4, bearing_deg: 155 }
-  },
-  {
-    incident_id: 'FIRMS-AUS-008',
-    name: 'Perth Hills Darling Scarp Eucalyptus Fire',
-    region: 'AUSTRALIA',
-    latitude: -32.08,
-    longitude: 116.14,
-    frp: 319.0,
-    brightness_temp_k: 387.9,
-    confidence_pct: 94,
-    detection_utc: '2025-05-11T02:30:00Z',
-    hours_ago: 3.7,
-    satellite_sensor: 'VIIRS NOAA-20',
-    fuel_type: 'Eucalyptus Bush',
-    estimated_containment_pct: 22,
-    slope_deg: 21,
-    ambient_humidity_pct: 15,
-    population_at_risk: 68400,
-    wind_vector: { speed_mps: 12.6, bearing_deg: 265 }
-  }
-];
-
-// ============================================================================
-// 4. MATHEMATICAL & DISPERSION PHYSICS ENGINE
-// ============================================================================
-
-/**
- * Great-circle Haversine distance between two coordinates in kilometers.
- */
-function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371.0;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-/**
- * Destination coordinate given starting (lat, lon), bearing (deg), and distance (km).
- */
-function destinationCoordinate(
-  lat: number,
-  lon: number,
-  bearingDeg: number,
-  distanceKm: number
-): { lat: number; lon: number } {
-  const R = 6371.0;
-  const d = distanceKm / R;
-  const brng = (bearingDeg * Math.PI) / 180;
-  const lat1 = (lat * Math.PI) / 180;
-  const lon1 = (lon * Math.PI) / 180;
-
-  const lat2 = Math.asin(
-    Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng)
-  );
-  const lon2 =
-    lon1 +
-    Math.atan2(
-      Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
-      Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
-    );
-
-  return {
-    lat: (lat2 * 180) / Math.PI,
-    lon: ((((lon2 * 180) / Math.PI) + 540) % 360) - 180
-  };
-}
-
-/**
- * 1A. ROTHERMEL SURFACE FIRE SPREAD MODEL (SIMPLIFIED FORMULATION)
- * Computes Rate of Spread R (m/min), Reaction Intensity I_R, Wind Factor phi_w,
- * Slope Factor phi_s, Byram's Fireline Intensity I_B (kW/m), Flame Length L_f (m),
- * and Elliptical Burn Growth over forward simulation time.
- */
-export function computeAzimuthBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-  const y = Math.sin(deltaLambda) * Math.cos(phi2);
-  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
-  const theta = (Math.atan2(y, x) * 180) / Math.PI;
-  return (theta + 360) % 360;
-}
-
-export function formatBearingDms(bearingDeg: number): string {
-  const norm = (bearingDeg + 360) % 360;
-  const deg = Math.floor(norm);
-  const min = Math.round((norm - deg) * 60);
-  return `${deg.toString().padStart(3, '0')}° ${min.toString().padStart(2, '0')}'`;
-}
-
-export function formatBearingQuadrant(bearingDeg: number): string {
-  const b = (bearingDeg + 360) % 360;
-  if (b >= 0 && b < 90) return `N ${formatBearingDms(b)} E`;
-  if (b >= 90 && b < 180) return `S ${formatBearingDms(180 - b)} E`;
-  if (b >= 180 && b < 270) return `S ${formatBearingDms(b - 180)} W`;
-  return `N ${formatBearingDms(360 - b)} W`;
-}
-
-export function formatBearingMils(bearingDeg: number): number {
-  return Math.round(((bearingDeg + 360) % 360) * (6400 / 360));
-}
-
-export function computeTriangulation(
-  t1: { latitude: number; longitude: number; elevationFt: number },
-  b1Deg: number,
-  t2: { latitude: number; longitude: number; elevationFt: number },
-  b2Deg: number
-): TriangulationSolution | null {
-  const phi1 = (t1.latitude * Math.PI) / 180;
-  const lambda1 = (t1.longitude * Math.PI) / 180;
-  const theta1 = (b1Deg * Math.PI) / 180;
-
-  const phi2 = (t2.latitude * Math.PI) / 180;
-  const lambda2 = (t2.longitude * Math.PI) / 180;
-  const theta2 = (b2Deg * Math.PI) / 180;
-
-  const deltaPhi = phi2 - phi1;
-  const deltaLambda = lambda2 - lambda1;
-
-  const dist12 =
-    2 *
-    Math.asin(
-      Math.sqrt(
-        Math.sin(deltaPhi / 2) ** 2 +
-          Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2
-      )
-    );
-
-  if (dist12 < 0.0001) return null;
-
-  const thetaA = Math.acos(
-    Math.max(-1, Math.min(1, (Math.sin(phi2) - Math.sin(phi1) * Math.cos(dist12)) /
-      (Math.sin(dist12) * Math.cos(phi1))))
-  );
-  const thetaB = Math.acos(
-    Math.max(-1, Math.min(1, (Math.sin(phi1) - Math.sin(phi2) * Math.cos(dist12)) /
-      (Math.sin(dist12) * Math.cos(phi2))))
-  );
-
-  let theta12 = thetaA;
-  let theta21 = 2 * Math.PI - thetaB;
-  if (Math.sin(deltaLambda) <= 0) {
-    theta12 = 2 * Math.PI - thetaA;
-    theta21 = thetaB;
-  }
-
-  const alpha1 = theta1 - theta12;
-  const alpha2 = theta21 - theta2;
-
-  if (Math.sin(alpha1) === 0 && Math.sin(alpha2) === 0) return null;
-  if (Math.sin(alpha1) * Math.sin(alpha2) < 0) return null;
-
-  const cosA3 = -Math.cos(alpha1) * Math.cos(alpha2) + Math.sin(alpha1) * Math.sin(alpha2) * Math.cos(dist12);
-  const alpha3 = Math.acos(Math.max(-1, Math.min(1, cosA3)));
-
-  const dist13 = Math.atan2(
-    Math.sin(dist12) * Math.sin(alpha1) * Math.sin(alpha2),
-    Math.cos(alpha2) + Math.cos(alpha1) * Math.cos(alpha3)
-  );
-
-  const phi3 = Math.asin(
-    Math.max(-1, Math.min(1, Math.sin(phi1) * Math.cos(dist13) + Math.cos(phi1) * Math.sin(dist13) * Math.cos(theta1)))
-  );
-  const deltaLambda13 = Math.atan2(
-    Math.sin(theta1) * Math.sin(dist13) * Math.cos(phi1),
-    Math.cos(dist13) - Math.sin(phi1) * Math.sin(phi3)
-  );
-  const lambda3 = lambda1 + deltaLambda13;
-
-  const lat = (phi3 * 180) / Math.PI;
-  const lon = ((((lambda3 * 180) / Math.PI) + 540) % 360) - 180;
-
-  const R = 6371.0;
-  const distA = Math.abs(dist13 * R);
-  const distB = haversineDistanceKm(t2.latitude, t2.longitude, lat, lon);
-
-  return {
-    lat,
-    lon,
-    distFromAkm: distA,
-    distFromBkm: distB,
-    errorRadiusKm: Math.max(0.4, Number((distA * 0.015 + distB * 0.015).toFixed(2))),
-    elevationEstFt: Math.round((t1.elevationFt + t2.elevationFt) / 2)
-  };
-}
-
-export function computeAlbiniSpotting(
-  flameLengthM: number,
-  windSpeedMps: number,
-  slopePct: number
-): AlbiniSpottingMetrics {
-  const flameHeightM = Math.max(0.5, flameLengthM * 0.75);
-  const slopeFactor = 1.0 + Math.min(1.2, slopePct / 100);
-  const rawDistKm = 0.00078 * (windSpeedMps * 3.6) * Math.sqrt(flameHeightM) * slopeFactor * 1.35;
-  const maxSpottingDistanceKm = Math.max(0.05, Number(rawDistKm.toFixed(2)));
-
-  let spottingRiskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'LOW';
-  if (maxSpottingDistanceKm > 2.5) spottingRiskLevel = 'CRITICAL';
-  else if (maxSpottingDistanceKm > 1.2) spottingRiskLevel = 'HIGH';
-  else if (maxSpottingDistanceKm > 0.4) spottingRiskLevel = 'MODERATE';
-
-  return {
-    maxSpottingDistanceKm,
-    spottingRiskLevel,
-    flameHeightM
-  };
-}
-
-function computeRothermelSpread(incident: WildfireIncident, simHourOffset: number): RothermelMetrics {
-  const spec = FUEL_MODEL_SPECS[incident.fuel_type];
-
-  const effWindSpeed = incident.overrides?.windSpeedMps !== undefined
-    ? incident.overrides.windSpeedMps
-    : incident.wind_vector.speed_mps;
-
-  const effHumidity = incident.overrides?.deadFuelMoisturePct !== undefined
-    ? incident.overrides.deadFuelMoisturePct
-    : incident.ambient_humidity_pct;
-
-  const effSlope = incident.overrides?.slopePct !== undefined
-    ? incident.overrides.slopePct
-    : incident.slope_deg;
-
-  const fuelMoistureFraction = incident.overrides?.deadFuelMoisturePct !== undefined
-    ? incident.overrides.deadFuelMoisturePct / 100
-    : Math.max(0.03, Math.min(spec.moistureExtinction * 0.92, (effHumidity / 100) * 0.42));
-
-  const isExtinguished = fuelMoistureFraction >= spec.moistureExtinction;
-  const rM = fuelMoistureFraction / spec.moistureExtinction;
-
-  // Moisture damping coefficient (eta_M)
-  const etaM = Math.max(
-    0.08,
-    1.0 - 2.59 * rM + 5.11 * Math.pow(rM, 2) - 3.52 * Math.pow(rM, 3)
-  );
-
-  // Optimum packing ratio beta_op (Rothermel 1972 eq. 37, converted to SI)
-  const savImperial = spec.savRatio / 3.28084; // 1/ft
-  const betaOp = 3.348 * Math.pow(savImperial, -0.8189);
-  const betaRatio = spec.packingRatioBeta / betaOp;
-
-  // Maximum reaction velocity Gamma'_max (min^-1)
-  const A = 133.0 * Math.pow(savImperial, -0.7913);
-  const gammaMax = Math.pow(savImperial, 1.5) / (495.0 + 0.0594 * Math.pow(savImperial, 1.5));
-  const gammaPrime =
-    gammaMax * Math.pow(betaRatio, A) * Math.exp(A * (1.0 - betaRatio));
-
-  // Mineral damping coefficient eta_S (typical silica content ~ 0.055)
-  const etaS = 0.41739;
-
-  // Reaction Intensity I_R (kW/m^2)
-  const reactionIntensityKwm2 =
-    (gammaPrime * spec.fuelLoadKgM2 * spec.heatContentKjKg * etaM * etaS) / 60.0;
-
-  // Propagating flux ratio xi
-  const xi =
-    Math.exp((0.792 + 0.681 * Math.sqrt(savImperial)) * (spec.packingRatioBeta + 0.1)) /
-    (192.0 + 0.2595 * savImperial);
-
-  // Wind factor phi_W (using midflame wind speed ~ 0.45 * 10m wind speed, in ft/min)
-  const midflameWindMps = effWindSpeed * 0.48;
-  const midflameWindFtMin = midflameWindMps * 196.85;
-  const C = 7.47 * Math.exp(-0.133 * Math.pow(savImperial, 0.55));
-  const B = 0.02526 * Math.pow(savImperial, 0.54);
-  const E = 0.715 * Math.exp(-0.000359 * savImperial);
-  const windFactorPhiW = C * Math.pow(midflameWindFtMin, B) * Math.pow(betaRatio, -E);
-
-  // Slope factor phi_S = 5.275 * beta^-0.3 * (tan theta)^2
-  const tanSlope = Math.tan((effSlope * Math.PI) / 180);
-  const slopeFactorPhiS =
-    5.275 * Math.pow(spec.packingRatioBeta, -0.3) * Math.pow(tanSlope, 2);
-
-  // Heat of preignition Q_ig (kJ/kg) and effective heating number epsilon
-  const qIg = 581.0 + 2594.0 * fuelMoistureFraction;
-  const epsilon = Math.exp(-452.8 / savImperial);
-  const bulkDensityRhoB = spec.fuelLoadKgM2 / spec.bedDepthM;
-
-  // Rate of Spread R (m/min) with FRP radiative coupling multiplier
-  const frpBoost = 1.0 + Math.log10(Math.max(10, incident.frp)) * 0.18;
-  const rawR =
-    ((reactionIntensityKwm2 * 60.0 * xi * (1.0 + windFactorPhiW + slopeFactorPhiS)) /
-      (bulkDensityRhoB * epsilon * qIg)) *
-    frpBoost;
-
-  const rateOfSpreadMpm = Math.max(0.8, Math.min(98.0, rawR));
-  const rateOfSpreadKmh = (rateOfSpreadMpm * 60) / 1000;
-
-  // Byram's Fireline Intensity I_B (kW/m) & Flame Length L_f (m)
-  const residenceTimeMin = 384.0 / savImperial;
-  const heatPerUnitAreaKjM2 = reactionIntensityKwm2 * 60.0 * residenceTimeMin;
-  const firelineIntensityKwm = (heatPerUnitAreaKjM2 * rateOfSpreadMpm) / 60.0;
-  const flameLengthM = 0.0775 * Math.pow(Math.max(1, firelineIntensityKwm), 0.46);
-
-  // Elliptical Fire Area Estimation (Anderson 1983 length-to-breadth ratio LB)
-  const lbRatio =
-    0.936 * Math.exp(0.2566 * midflameWindMps) +
-    0.461 * Math.exp(-0.1548 * midflameWindMps) -
-    0.397;
-  const clampedLb = Math.max(1.1, Math.min(8.0, lbRatio));
-
-  // Initial burned area based on FRP & active burn duration
-  const activeBurnHours = Math.max(2.0, Math.min(36.0, incident.hours_ago + 4.0));
-  const containmentDamping = 1.0 - (incident.estimated_containment_pct / 100) * 0.65;
-  const initialMajorKm = Math.max(
-    0.6,
-    rateOfSpreadKmh * Math.sqrt(activeBurnHours) * 0.72 * containmentDamping
-  );
-  const initialMinorKm = initialMajorKm / clampedLb;
-  const initialBurnAreaHa = Math.PI * (initialMajorKm / 2) * (initialMinorKm / 2) * 100;
-
-  // Forward simulation expansion (+simHourOffset hours)
-  const ellipseMajorAxisKm =
-    initialMajorKm + rateOfSpreadKmh * simHourOffset * containmentDamping;
-  const ellipseMinorAxisKm = ellipseMajorAxisKm / clampedLb;
-  const simulatedBurnAreaHa =
-    Math.PI * (ellipseMajorAxisKm / 2) * (ellipseMinorAxisKm / 2) * 100;
-
-  let finalRosMpm = rateOfSpreadMpm;
-  let finalFlameM = flameLengthM;
-  let suppressedByRetardant = false;
-
-  if (isExtinguished) {
-    finalRosMpm = 0.05;
-    finalFlameM = 0.1;
-  } else {
-    if (incident.suppression?.retardantApplied) {
-      finalRosMpm *= 0.35;
-      finalFlameM *= 0.50;
-      suppressedByRetardant = true;
-    }
-    if (incident.suppression?.backburnActive) {
-      finalRosMpm *= 0.65;
-    }
-  }
-
-  const finalRosKmh = (finalRosMpm * 60) / 1000;
-  const effectiveContainmentPct = Math.min(
-    100,
-    incident.estimated_containment_pct +
-      (incident.suppression?.vlatDrops || 0) * 25 +
-      (incident.suppression?.dozerLineKm || 0) * 12
-  );
-
-  const spotting = computeAlbiniSpotting(finalFlameM, effWindSpeed, effSlope);
-
-  return {
-    rateOfSpreadMpm: finalRosMpm,
-    rateOfSpreadKmh: finalRosKmh,
-    reactionIntensityKwm2,
-    firelineIntensityKwm,
-    flameLengthM: finalFlameM,
-    windFactorPhiW,
-    slopeFactorPhiS,
-    initialBurnAreaHa,
-    simulatedBurnAreaHa,
-    ellipseMajorAxisKm,
-    ellipseMinorAxisKm,
-    spotting,
-    isExtinguished,
-    suppressedByRetardant,
-    effectiveContainmentPct
-  };
-}
-
-/**
- * 1B. FIRE RADIATIVE ENERGY (FRE) & BIOMASS COMBUSTION ENGINE
- * Integrates FRP (MW = MJ/s) over time into Gigajoules (GJ) and Terajoules (TJ),
- * computes biomass consumption rate (Wooster et al. 2005 factor: 0.368 kg/MJ),
- * and derives source PM2.5 emission rate Q (g/s).
- */
-function computeFREAndEmissions(incident: WildfireIncident, simHourOffset: number): FREMetrics {
-  const spec = FUEL_MODEL_SPECS[incident.fuel_type];
-
-  // Effective integration window (hours) accounting for diurnal cycle + forward sim
-  const integrationHours = Math.max(3.0, Math.min(48.0, incident.hours_ago + 4.0 + simHourOffset));
-  const diurnalModulation = 0.78; // Accounts for overnight radiative dip
-  const freMegajoules = incident.frp * integrationHours * 3600 * diurnalModulation;
-  const freGigajoules = freMegajoules / 1000;
-  const freTerajoules = freGigajoules / 1000;
-
-  // Wooster et al. (2005) radiative-to-biomass conversion coefficient: 0.368 kg/MJ
-  const biomassCombustionRateKgs = incident.frp * 0.368;
-
-  // Emission rate Q (g/s of PM2.5) = biomass rate (kg/s) * EF_PM25 (g/kg)
-  const pm25EmissionRateGs = biomassCombustionRateKgs * spec.emissionFactorPm25;
-
-  let severityClass: FREMetrics['severityClass'] = 'Low';
-  let severityColor = '#22c55e';
-  if (incident.frp >= 400 || freTerajoules >= 18) {
-    severityClass = 'Extreme Complex';
-    severityColor = '#ef4444';
-  } else if (incident.frp >= 260 || freTerajoules >= 9) {
-    severityClass = 'High';
-    severityColor = '#f97316';
-  } else if (incident.frp >= 150 || freTerajoules >= 4) {
-    severityClass = 'Moderate';
-    severityColor = '#f59e0b';
-  }
-
-  return {
-    freGigajoules,
-    freTerajoules,
-    biomassCombustionRateKgs,
-    pm25EmissionRateGs,
-    severityClass,
-    severityColor
-  };
-}
-
-/**
- * 1C. ATMOSPHERIC DISPERSION & 2D GAUSSIAN SMOKE PLUME MODEL
- * C(x, y) = (Q / (2 * pi * u * sigma_y * sigma_z)) * exp(-y^2 / (2 * sigma_y^2))
- * using Pasquill-Gifford stability class C/D dispersion parameterization.
- */
-function evaluateGaussianPlumeAt(
-  Q_gs: number,
-  windSpeedMps: number,
-  downwindMeters: number,
-  crosswindMeters: number
-): { concentrationUgM3: number; sigmaY: number; sigmaZ: number } {
-  const u = Math.max(1.5, windSpeedMps);
-  const x = Math.max(500, downwindMeters);
-
-  // Pasquill-Gifford Class C (convective thermal buoyancy plume) dispersion coefficients (m)
-  const sigmaY = 0.11 * x * Math.pow(1.0 + 0.0001 * x, -0.5);
-  const sigmaZ = 0.08 * x * Math.pow(1.0 + 0.0002 * x, -0.5);
-
-  // Convert Q from g/s to ug/s (1 g = 1e6 ug)
-  const Q_ugs = Q_gs * 1e6;
-
-  // 2D Gaussian Plume equation: C(x,y) = (Q / (2 * pi * u * sigma_y * sigma_z)) * exp(-y^2 / (2 * sigma_y^2))
-  const prefactor = Q_ugs / (2.0 * Math.PI * u * sigmaY * sigmaZ);
-  const lateralDecay = Math.exp(
-    -(crosswindMeters * crosswindMeters) / (2.0 * sigmaY * sigmaY)
-  );
-
-  const concentrationUgM3 = prefactor * lateralDecay;
-  return { concentrationUgM3, sigmaY, sigmaZ };
-}
-
-function classifyAqiPm25(pm25: number): {
-  aqiCategory: PlumeConcentrationPoint['aqiCategory'];
-  colorHex: string;
-} {
-  if (pm25 >= 250) return { aqiCategory: 'Hazardous', colorHex: '#ef4444' };
-  if (pm25 >= 150) return { aqiCategory: 'Very Unhealthy', colorHex: '#f97316' };
-  if (pm25 >= 55) return { aqiCategory: 'Unhealthy', colorHex: '#f59e0b' };
-  if (pm25 >= 15) return { aqiCategory: 'Moderate', colorHex: '#eab308' };
-  return { aqiCategory: 'Good', colorHex: '#10b981' };
-}
-
-/**
- * 1D. SPATIAL CONVEX HULL (MONOTONE CHAIN) & PROXIMITY CLUSTERING (<15km)
- */
-function computeConvexHull(
-  points: Array<{ lat: number; lon: number }>
-): Array<{ lat: number; lon: number }> {
-  if (points.length <= 2) return points;
-
-  const sorted = [...points].sort((a, b) =>
-    a.lon === b.lon ? a.lat - b.lat : a.lon - b.lon
-  );
-
-  const cross = (
-    o: { lat: number; lon: number },
-    a: { lat: number; lon: number },
-    b: { lat: number; lon: number }
-  ) => (a.lon - o.lon) * (b.lat - o.lat) - (a.lat - o.lat) * (b.lon - o.lon);
-
-  const lower: Array<{ lat: number; lon: number }> = [];
-  for (const p of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-
-  const upper: Array<{ lat: number; lon: number }> = [];
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const p = sorted[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-
-  upper.pop();
-  lower.pop();
-  return lower.concat(upper);
-}
-
-/**
- * Pads a cluster's points outward slightly so 2-point or 3-point thermal fronts
- * form a clean, visible tactical buffered polygon on the GIS canvas.
- */
-function buildBufferedClusterPolygon(
-  incidents: IncidentPhysicsSimulation[],
-  bufferKm: number = 6.5
-): Array<{ lat: number; lon: number }> {
-  const rawSamples: Array<{ lat: number; lon: number }> = [];
-  for (const sim of incidents) {
-    const { latitude, longitude } = sim.incident;
-    for (let angle = 0; angle < 360; angle += 45) {
-      rawSamples.push(destinationCoordinate(latitude, longitude, angle, bufferKm));
-    }
-  }
-  return computeConvexHull(rawSamples);
-}
-
-// ============================================================================
-// 5. CUSTOM MODULAR HOOKS (useFireData, useGISFilter, usePlumeSimulation)
+// CUSTOM MODULAR HOOKS (useFireData, useGISFilter, usePlumeSimulation)
 // ============================================================================
 
 /**
@@ -2264,127 +91,19 @@ function buildBufferedClusterPolygon(
  */
 function useFireData() {
   const [incidents, setIncidents] = useState<WildfireIncident[]>(INITIAL_FIRMS_INCIDENTS);
-  const [lastIngestedCount, setLastIngestedCount] = useState<number | null>(null);
   const [ingestionError, setIngestionError] = useState<string | null>(null);
 
   const ingestPayloadAsync = useCallback(async (rawText: string): Promise<number> => {
     setIngestionError(null);
     await new Promise((resolve) => setTimeout(resolve, 180)); // Async ingestion pipeline
 
-    const trimmed = rawText.trim();
-    if (!trimmed) {
-      throw new Error('Empty payload provided to FIRMS parser.');
-    }
-
-    const parsedIncidents: WildfireIncident[] = [];
-
-    // 1. Check if GeoJSON FeatureCollection or JSON Array
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      const json = JSON.parse(trimmed);
-      const features = Array.isArray(json)
-        ? json
-        : Array.isArray(json.features)
-        ? json.features
-        : [];
-
-      features.forEach((f: any, idx: number) => {
-        const props = f.properties || f;
-        const coords = f.geometry?.coordinates || [props.longitude, props.latitude];
-        const lon = parseFloat(coords[0] ?? props.lon ?? props.longitude);
-        const lat = parseFloat(coords[1] ?? props.lat ?? props.latitude);
-        if (isNaN(lat) || isNaN(lon)) return;
-
-        parsedIncidents.push({
-          incident_id: props.incident_id || `FIRMS-ING-${Date.now().toString().slice(-4)}-${idx + 1}`,
-          name: props.name || `Ingested Thermal Anomaly #${idx + 1}`,
-          region: 'GLOBAL',
-          latitude: lat,
-          longitude: lon,
-          frp: parseFloat(props.frp) || 215.0,
-          brightness_temp_k: parseFloat(props.bright_ti4 || props.brightness_temp_k || props.brightness) || 375.0,
-          confidence_pct: parseFloat(props.confidence_pct || props.confidence) || 90,
-          detection_utc: props.detection_utc || new Date().toISOString(),
-          hours_ago: parseFloat(props.hours_ago) || 1.0,
-          satellite_sensor: (props.satellite_sensor as SatelliteSensor) || 'VIIRS SNPP',
-          fuel_type: (props.fuel_type as FuelModelType) || 'Chaparral',
-          estimated_containment_pct: parseFloat(props.estimated_containment_pct) || 10,
-          slope_deg: parseFloat(props.slope_deg) || 18,
-          ambient_humidity_pct: parseFloat(props.ambient_humidity_pct) || 16,
-          population_at_risk: parseInt(props.population_at_risk, 10) || 15000,
-          wind_vector: {
-            speed_mps: parseFloat(props.wind_speed_mps || props.wind_vector?.speed_mps) || 10.5,
-            bearing_deg: parseFloat(props.wind_bearing_deg || props.wind_vector?.bearing_deg) || 120
-          }
-        });
-      });
-    } else {
-      // 2. Parse NASA FIRMS NRT CSV Schema
-      const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
-      if (lines.length < 2) {
-        throw new Error('CSV must include header row and at least 1 telemetry record.');
-      }
-      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map((c) => c.trim());
-        const row: Record<string, string> = {};
-        headers.forEach((h, cIdx) => {
-          row[h] = cols[cIdx] ?? '';
-        });
-
-        const lat = parseFloat(row.latitude || row.lat);
-        const lon = parseFloat(row.longitude || row.lon);
-        if (isNaN(lat) || isNaN(lon)) continue;
-
-        const confRaw = row.confidence_pct || row.confidence || '92';
-        const confNum =
-          confRaw === 'h' || confRaw === 'high'
-            ? 96
-            : confRaw === 'n' || confRaw === 'nominal'
-            ? 84
-            : parseFloat(confRaw) || 90;
-
-        parsedIncidents.push({
-          incident_id:
-            row.incident_id || `FIRMS-CSV-${Date.now().toString().slice(-4)}-${i}`,
-          name: row.name || `FIRMS NRT Spot (${lat.toFixed(2)}, ${lon.toFixed(2)})`,
-          region: 'GLOBAL',
-          latitude: lat,
-          longitude: lon,
-          frp: parseFloat(row.frp) || 240.0,
-          brightness_temp_k:
-            parseFloat(row.brightness_temp_k || row.bright_ti4 || row.brightness) || 382.0,
-          confidence_pct: Math.min(100, Math.max(0, confNum)),
-          detection_utc: row.detection_utc || row.acq_date || new Date().toISOString(),
-          hours_ago: parseFloat(row.hours_ago) || 1.2,
-          satellite_sensor:
-            (row.satellite_sensor as SatelliteSensor) || 'VIIRS NOAA-20',
-          fuel_type: (row.fuel_type as FuelModelType) || 'Chaparral',
-          estimated_containment_pct:
-            parseFloat(row.estimated_containment_pct) || 12,
-          slope_deg: parseFloat(row.slope_deg) || 21,
-          ambient_humidity_pct: parseFloat(row.ambient_humidity_pct) || 15,
-          population_at_risk: parseInt(row.population_at_risk, 10) || 18500,
-          wind_vector: {
-            speed_mps: parseFloat(row.wind_speed_mps) || 11.2,
-            bearing_deg: parseFloat(row.wind_bearing_deg) || 140
-          }
-        });
-      }
-    }
-
-    if (parsedIncidents.length === 0) {
-      throw new Error('No valid coordinate records found in payload.');
-    }
-
+    const parsedIncidents = parseFirmsPayload(rawText);
     setIncidents((prev) => [...parsedIncidents, ...prev]);
-    setLastIngestedCount(parsedIncidents.length);
     return parsedIncidents.length;
   }, []);
 
   const resetDataset = useCallback(() => {
     setIncidents(INITIAL_FIRMS_INCIDENTS);
-    setLastIngestedCount(null);
     setIngestionError(null);
   }, []);
 
@@ -2494,7 +213,6 @@ function useFireData() {
     incidents,
     ingestPayloadAsync,
     resetDataset,
-    lastIngestedCount,
     ingestionError,
     setIngestionError,
     addCustomSpotFire,
@@ -2541,280 +259,15 @@ function usePlumeSimulation(
   clusterRadiusKm: number
 ) {
   const simulatedIncidents = useMemo<IncidentPhysicsSimulation[]>(() => {
-    const distancesKm = [5, 10, 20, 35, 50, 75, 100];
-
-    return filteredIncidents.map((incident) => {
-      const rothermel = computeRothermelSpread(incident, simHourOffset);
-      const fre = computeFREAndEmissions(incident, simHourOffset);
-
-      // Compute downwind plume concentration profile at discrete stations
-      const plumeProfile: PlumeConcentrationPoint[] = distancesKm.map((distKm) => {
-        const { concentrationUgM3, sigmaY, sigmaZ } = evaluateGaussianPlumeAt(
-          fre.pm25EmissionRateGs,
-          incident.wind_vector.speed_mps,
-          distKm * 1000,
-          0
-        );
-        const { aqiCategory, colorHex } = classifyAqiPm25(concentrationUgM3);
-        return {
-          distanceKm: distKm,
-          centerlinePm25: concentrationUgM3,
-          sigmaY,
-          sigmaZ,
-          aqiCategory,
-          colorHex
-        };
-      });
-
-      // Smoke drift transport corridors (km downwind at 6h, 12h, 24h)
-      // Effective transport velocity in planetary boundary layer ~ 0.65 * wind_speed_mps
-      const effectiveDriftKmh = incident.wind_vector.speed_mps * 3.6 * 0.62;
-      const corridor6hKm = Math.max(18, effectiveDriftKmh * 6);
-      const corridor12hKm = Math.max(36, effectiveDriftKmh * 12);
-      const corridor24hKm = Math.max(72, effectiveDriftKmh * 24);
-      const activeSimCorridorKm = Math.max(
-        corridor6hKm * 0.45,
-        effectiveDriftKmh * Math.max(2, simHourOffset)
-      );
-
-      return {
-        incident,
-        rothermel,
-        fre,
-        plumeProfile,
-        corridor6hKm,
-        corridor12hKm,
-        corridor24hKm,
-        activeSimCorridorKm
-      };
-    });
+    return filteredIncidents.map((incident) => simulateIncidentPhysics(incident, simHourOffset));
   }, [filteredIncidents, simHourOffset]);
 
-  // Connected-Components Spatial Clustering (Hotspot Cluster Tessellation <= clusterRadiusKm)
   const thermalClusters = useMemo<ThermalCluster[]>(() => {
-    const n = simulatedIncidents.length;
-    const visited = new Array(n).fill(false);
-    const clusters: ThermalCluster[] = [];
-
-    for (let i = 0; i < n; i++) {
-      if (visited[i]) continue;
-      const component: IncidentPhysicsSimulation[] = [];
-      const queue: number[] = [i];
-      visited[i] = true;
-
-      while (queue.length > 0) {
-        const currIdx = queue.shift()!;
-        const currSim = simulatedIncidents[currIdx];
-        component.push(currSim);
-
-        for (let j = 0; j < n; j++) {
-          if (visited[j]) continue;
-          const dist = haversineDistanceKm(
-            currSim.incident.latitude,
-            currSim.incident.longitude,
-            simulatedIncidents[j].incident.latitude,
-            simulatedIncidents[j].incident.longitude
-          );
-          if (dist <= clusterRadiusKm) {
-            visited[j] = true;
-            queue.push(j);
-          }
-        }
-      }
-
-      if (component.length >= 2) {
-        const sumLat = component.reduce((acc, s) => acc + s.incident.latitude, 0);
-        const sumLon = component.reduce((acc, s) => acc + s.incident.longitude, 0);
-        const centroid = {
-          lat: sumLat / component.length,
-          lon: sumLon / component.length
-        };
-
-        const hullPoints = buildBufferedClusterPolygon(component, 6.0);
-        let perimeterKm = 0;
-        for (let k = 0; k < hullPoints.length; k++) {
-          const p1 = hullPoints[k];
-          const p2 = hullPoints[(k + 1) % hullPoints.length];
-          perimeterKm += haversineDistanceKm(p1.lat, p1.lon, p2.lat, p2.lon);
-        }
-
-        const aggregateFrpMw = component.reduce((acc, s) => acc + s.incident.frp, 0);
-        const maxRateOfSpreadMpm = Math.max(
-          ...component.map((s) => s.rothermel.rateOfSpreadMpm)
-        );
-        const totalPopulationAtRisk = component.reduce(
-          (acc, s) => acc + s.incident.population_at_risk,
-          0
-        );
-
-        const baseName = component[0].incident.name.split(' - ')[0];
-        clusters.push({
-          cluster_id: `COMPLEX-${clusters.length + 1}`,
-          name: `${baseName} Thermal Front (${component.length} Spots)`,
-          incidents: component,
-          centroid,
-          hullPoints,
-          aggregateFrpMw,
-          maxRateOfSpreadMpm,
-          totalPopulationAtRisk,
-          perimeterKm
-        });
-      }
-    }
-
-    return clusters;
+    return computeThermalClusters(simulatedIncidents, clusterRadiusKm);
   }, [simulatedIncidents, clusterRadiusKm]);
 
   return { simulatedIncidents, thermalClusters };
 }
-
-// ============================================================================
-// 6. SIMPLIFIED WORLD & REGIONAL VECTOR COASTLINE POLYGONS FOR GIS CANVAS
-// ============================================================================
-// High-precision landmass outlines so the tactical dark slate GIS map looks
-// authentic both at global scale and when zoomed into fire theaters.
-
-const WORLD_LANDMASS_POLYGONS: Array<{ name: string; coords: Array<[number, number]> }> = [
-  {
-    name: 'North America',
-    coords: [
-      [-168, 65], [-160, 70], [-140, 70], [-125, 72], [-95, 74], [-80, 70],
-      [-65, 62], [-55, 52], [-66, 44], [-70, 41], [-75, 35], [-81, 25],
-      [-83, 29], [-90, 29], [-97, 26], [-96, 19], [-88, 21], [-83, 10],
-      [-78, 8], [-85, 11], [-92, 15], [-105, 20], [-110, 24], [-114, 31],
-      [-117, 32.5], [-120.5, 34.5], [-122.5, 37.8], [-124.2, 40.5],
-      [-124.5, 48], [-130, 54], [-138, 59], [-152, 60], [-162, 55], [-168, 65]
-    ]
-  },
-  {
-    name: 'South America',
-    coords: [
-      [-78, 9], [-72, 11], [-62, 10], [-50, 2], [-42, -3], [-35, -6],
-      [-38, -13], [-40, -22], [-48, -28], [-54, -34], [-62, -40], [-67, -50],
-      [-70, -54], [-75, -48], [-72, -35], [-71, -20], [-77, -12], [-81, -5],
-      [-78, 2], [-78, 9]
-    ]
-  },
-  {
-    name: 'Europe & Mediterranean N',
-    coords: [
-      [-9.5, 37], [-9, 43], [-2, 43.5], [-4.5, 48], [2, 51], [8, 54],
-      [10, 58], [5, 62], [15, 69], [28, 71], [42, 67], [60, 69],
-      [60, 55], [40, 46], [29, 45], [28, 41], [26, 40.5], [24, 38],
-      [22.5, 36.5], [20, 39], [18, 40], [16, 38], [15, 40], [13.5, 45],
-      [10, 44], [8, 44], [5, 43.3], [3, 42], [0, 39], [-5.5, 36], [-9.5, 37]
-    ]
-  },
-  {
-    name: 'Africa',
-    coords: [
-      [-17, 15], [-13, 28], [-5.8, 35.8], [3, 37], [10.5, 37], [12, 33],
-      [20, 32], [32, 31.5], [34, 28], [40, 16], [43, 12], [51, 12],
-      [41, -2], [40, -11], [35, -20], [32, -29], [25, -34], [18.4, -34.4],
-      [15, -24], [12.5, -17], [13, -9], [9, -1], [9, 4], [2, 6],
-      [-8, 4.5], [-16, 11], [-17, 15]
-    ]
-  },
-  {
-    name: 'Asia & Anatolia',
-    coords: [
-      [26, 40], [27, 36.8], [31, 36.8], [36, 36.5], [35, 32], [39, 22],
-      [45, 13], [59, 22], [56, 27], [49, 30], [67, 24], [73, 18],
-      [78, 8], [88, 22], [98, 16], [103, 2], [109, 12], [108, 21],
-      [121, 24], [122, 31], [120, 39], [129, 35], [135, 45], [142, 53],
-      [160, 60], [178, 66], [140, 73], [105, 76], [70, 72], [60, 69],
-      [50, 45], [40, 42], [29, 41], [26, 40]
-    ]
-  },
-  {
-    name: 'Australia',
-    coords: [
-      [113.5, -22], [122, -17], [131, -12], [136, -12.5], [136, -15],
-      [141, -17], [142.5, -11], [146, -18], [150, -23], [153.5, -28],
-      [150.5, -34], [149.8, -37.5], [145, -38.5], [140, -37.5],
-      [136, -35], [131, -31.5], [122, -34], [115.5, -34], [115.8, -32],
-      [114, -26], [113.5, -22]
-    ]
-  },
-  {
-    name: 'Greenland',
-    coords: [
-      [-52, 60], [-43, 60], [-22, 70], [-18, 81], [-55, 82], [-70, 76],
-      [-55, 68], [-52, 60]
-    ]
-  },
-  {
-    name: 'United Kingdom',
-    coords: [
-      [-5.5, 50], [-5, 54], [-6, 58.5], [-2, 58.5], [1.5, 52.5], [1, 51], [-5.5, 50]
-    ]
-  },
-  {
-    name: 'Madagascar',
-    coords: [
-      [49, -12], [50.2, -16], [47, -25], [44, -24.5], [44.5, -17], [49, -12]
-    ]
-  },
-  {
-    name: 'Japan & Sakhalin',
-    coords: [
-      [130, 31], [131, 34], [136, 35], [140, 36], [141.5, 41], [145, 43],
-      [142, 45], [139.5, 40], [135, 35.5], [130, 31]
-    ]
-  },
-  {
-    name: 'New Zealand',
-    coords: [
-      [172, -34.5], [178, -37.5], [175, -41.5], [166.5, -46], [168, -44],
-      [173, -40.5], [172, -34.5]
-    ]
-  },
-  {
-    name: 'Indonesia / Borneo / Sumatra',
-    coords: [
-      [95.5, 5.5], [104, 1], [106, -6], [114, -8], [118, -4], [117, 4],
-      [110, 2], [102, 4], [95.5, 5.5]
-    ]
-  }
-];
-
-const THEATER_TOPO_RIDGES: Array<{
-  name: string;
-  labelLat: number;
-  labelLon: number;
-  coords: Array<[number, number]>;
-}> = [
-  {
-    name: 'SIERRA NEVADA CREST',
-    labelLat: 38.3,
-    labelLon: -119.5,
-    coords: [[-121.6, 40.4], [-120.2, 39.1], [-119.2, 37.7], [-118.4, 36.5], [-118.2, 35.4]]
-  },
-  {
-    name: 'CALIFORNIA COAST RANGE',
-    labelLat: 39.5,
-    labelLon: -123.1,
-    coords: [[-123.8, 41.2], [-122.9, 39.4], [-121.7, 36.3], [-119.8, 34.5]]
-  },
-  {
-    name: 'HELLENIC PINDUS & ATTICA RIDGE',
-    labelLat: 38.6,
-    labelLon: 22.3,
-    coords: [[20.8, 40.2], [21.6, 39.1], [22.4, 38.4], [23.9, 38.1]]
-  },
-  {
-    name: 'BLUE MOUNTAINS ESCARPMENT',
-    labelLat: -34.2,
-    labelLon: 149.8,
-    coords: [[150.8, -32.4], [150.3, -33.5], [149.2, -35.2], [148.1, -36.5]]
-  },
-  {
-    name: 'ATHABASCA TAIGA SHIELD',
-    labelLat: 59.3,
-    labelLon: -113.5,
-    coords: [[-118.8, 58.9], [-115.2, 59.1], [-111.3, 58.6], [-107.5, 58.2]]
-  }
-];
 
 // ============================================================================
 // 7. SUB-COMPONENTS: TUI FLOATING BORDER, WIND ROSE, GAUSSIAN PLUME CHART
@@ -3256,7 +709,6 @@ export default function App() {
     incidents,
     ingestPayloadAsync,
     resetDataset,
-    lastIngestedCount,
     ingestionError,
     setIngestionError,
     addCustomSpotFire,
@@ -3277,9 +729,6 @@ export default function App() {
   const [manualAzimuthDeg, setManualAzimuthDeg] = useState<number>(142.5);
   const [isManualAim, setIsManualAim] = useState<boolean>(false);
 
-  // Sensitivity Sandbox Drawer Toggle
-  const [sandboxExpanded, setSandboxExpanded] = useState<boolean>(false);
-
   // 2. Multi-Parametric Filter State
   const [filters, setFilters] = useState<GISFilterState>({
     minFrp: 100,
@@ -3298,22 +747,12 @@ export default function App() {
     searchQuery: ''
   });
 
-  // 3. Spatial Overlay Visibility State
-  const [layers, setLayers] = useState<LayerVisibility>({
-    plumeCones: true,
-    clusterHulls: true,
-    pulseRings: true,
-    thermalHeatmap: true,
-    windVectors: true,
-    graticuleGrid: true
-  });
-
-  // 4. Forward Dispersion Simulation Playback State (0h to +24h)
+  // 3. Forward Dispersion Simulation Playback State (0h to +24h)
   const [simHourOffset, setSimHourOffset] = useState<number>(6.0);
   const [isSimPlaying, setIsSimPlaying] = useState<boolean>(false);
   const [simSpeedMultiplier, setSimSpeedMultiplier] = useState<1 | 5>(1);
 
-  // 5. GIS Viewport Camera State
+  // 4. GIS Viewport Camera State
   const [activeTheater, setActiveTheater] = useState<TheaterRegion>('GLOBAL');
   const [camera, setCamera] = useState<{ centerLat: number; centerLon: number; zoom: number }>({
     centerLat: 16,
@@ -3322,13 +761,11 @@ export default function App() {
   });
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lon: number } | null>(null);
 
-  // 6. Selected Incident / Modals / Vim Command Line
+  // 5. Selected Incident / Modals / Vim Command Line
   const [selectedIncidentId, setSelectedIncidentId] = useState<string>('FIRMS-CA-001');
-  const [leftDeckOpen, setLeftDeckOpen] = useState<boolean>(true);
   const [rightDrawerOpen, setRightDrawerOpen] = useState<boolean>(true);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState<boolean>(false);
   const [ingestText, setIngestText] = useState<string>('');
-  const [exportToast, setExportToast] = useState<string | null>(null);
 
   // Telescope Fuzzy Finder State
   const [isTelescopeOpen, setIsTelescopeOpen] = useState<boolean>(false);
@@ -3359,6 +796,17 @@ export default function App() {
       null
     );
   }, [simulatedIncidents, selectedIncidentId]);
+
+  // Scale Web Audio combustion rumble to the active incident's radiative power (FRP)
+  useEffect(() => {
+    if (!audioEnabled || !selectedSim) return;
+    const effectiveFrp = selectedSim.rothermel.isExtinguished
+      ? 0
+      : selectedSim.rothermel.suppressedByRetardant
+        ? selectedSim.incident.frp * 0.5
+        : selectedSim.incident.frp;
+    lookoutSound.updateThermalPower(effectiveFrp);
+  }, [audioEnabled, selectedSim]);
 
   // Osborne Lookout Towers & Triangulation State
   const primaryTower = useMemo(
@@ -3486,76 +934,12 @@ export default function App() {
   // Export CSV / GeoJSON Utility
   const handleExportData = useCallback(
     (format: 'CSV' | 'GEOJSON') => {
-      let content = '';
-      let mime = 'text/csv';
-      let ext = 'csv';
-
-      if (format === 'CSV') {
-        const headers = [
-          'incident_id',
-          'name',
-          'latitude',
-          'longitude',
-          'frp_mw',
-          'brightness_temp_k',
-          'confidence_pct',
-          'satellite_sensor',
-          'fuel_type',
-          'rate_of_spread_mpm',
-          'fireline_intensity_kwm',
-          'fre_tj',
-          'simulated_area_ha',
-          'wind_speed_mps',
-          'wind_bearing_deg'
-        ];
-        const rows = simulatedIncidents.map((s) =>
-          [
-            s.incident.incident_id,
-            `"${s.incident.name}"`,
-            s.incident.latitude.toFixed(4),
-            s.incident.longitude.toFixed(4),
-            s.incident.frp.toFixed(1),
-            s.incident.brightness_temp_k.toFixed(1),
-            s.incident.confidence_pct,
-            `"${s.incident.satellite_sensor}"`,
-            `"${s.incident.fuel_type}"`,
-            s.rothermel.rateOfSpreadMpm.toFixed(2),
-            s.rothermel.firelineIntensityKwm.toFixed(0),
-            s.fre.freTerajoules.toFixed(2),
-            s.rothermel.simulatedBurnAreaHa.toFixed(0),
-            s.incident.wind_vector.speed_mps.toFixed(1),
-            s.incident.wind_vector.bearing_deg.toFixed(0)
-          ].join(',')
-        );
-        content = [headers.join(','), ...rows].join('\n');
-      } else {
-        mime = 'application/geo+json';
-        ext = 'geojson';
-        const geojson = {
-          type: 'FeatureCollection',
-          metadata: {
-            generator: 'PyroWatch-Core Neovim Scientific Telemetry Engine',
-            simulation_hour_offset: simHourOffset,
-            exported_utc: new Date().toISOString()
-          },
-          features: simulatedIncidents.map((s) => ({
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [s.incident.longitude, s.incident.latitude]
-            },
-            properties: {
-              ...s.incident,
-              rothermel_spread_mpm: Number(s.rothermel.rateOfSpreadMpm.toFixed(2)),
-              fireline_intensity_kwm: Number(s.rothermel.firelineIntensityKwm.toFixed(0)),
-              fre_terajoules: Number(s.fre.freTerajoules.toFixed(2)),
-              pm25_emission_gs: Number(s.fre.pm25EmissionRateGs.toFixed(1)),
-              simulated_burn_area_ha: Number(s.rothermel.simulatedBurnAreaHa.toFixed(1))
-            }
-          }))
-        };
-        content = JSON.stringify(geojson, null, 2);
-      }
+      const content =
+        format === 'CSV'
+          ? serializeIncidentsToCsv(simulatedIncidents)
+          : serializeIncidentsToGeoJson(simulatedIncidents, simHourOffset);
+      const mime = format === 'CSV' ? 'text/csv' : 'application/geo+json';
+      const ext = format === 'CSV' ? 'csv' : 'geojson';
 
       const blob = new Blob([content], { type: mime });
       const url = URL.createObjectURL(blob);
@@ -3568,9 +952,7 @@ export default function App() {
       URL.revokeObjectURL(url);
 
       const msg = `:w! pyrowatch_firms_telemetry_${simHourOffset}h.${ext} (${simulatedIncidents.length} records written)`;
-      setExportToast(msg);
       setVimStatusMsg(msg);
-      setTimeout(() => setExportToast(null), 3200);
     },
     [simulatedIncidents, simHourOffset]
   );
@@ -3708,24 +1090,27 @@ export default function App() {
       setVimStatusMsg(':e! Dataset and simulation clock reset to initial FIRMS epoch');
     } else if (raw === 'b1' || raw === 'gis') {
       setActiveBuffer('VIEWPORT_GIS');
+      lookoutSound.playSquelch();
     } else if (raw === 'b2' || raw === 'table') {
       setActiveBuffer('FIRMS_TABLE_CSV');
+      lookoutSound.playSquelch();
     } else if (raw === 'b3' || raw === 'core') {
       setActiveBuffer('ROTHERMEL_CORE_RS');
+      lookoutSound.playSquelch();
     } else if (raw === 'b4' || raw === 'firefinder' || raw === 'osborne') {
       setActiveBuffer('FIREFINDER_TUI');
+      lookoutSound.playSquelch();
       setVimStatusMsg(':buffer 4 (firefinder.rs) [Osborne Lookout Station]');
     } else if (raw === 'b5' || raw === 'help' || raw === 'h') {
       setActiveBuffer('HELP_DOCS');
+      lookoutSound.playSquelch();
       setVimStatusMsg(':help pyrowatch [Operator Manual & Equations]');
     } else if (raw === 'audio on') {
-      lookoutSound.enabled = false;
-      const on = lookoutSound.toggle();
+      const on = lookoutSound.setEnabled(true);
       setAudioEnabled(on);
       setVimStatusMsg(':audio on [VHF Radio & Thermal Rumble]');
     } else if (raw === 'audio off' || raw === 'mute') {
-      lookoutSound.enabled = true;
-      lookoutSound.toggle();
+      lookoutSound.setEnabled(false);
       setAudioEnabled(false);
       setVimStatusMsg(':audio off [Muted]');
     } else if (raw === 'ignite') {
@@ -3828,7 +1213,7 @@ export default function App() {
       ctx.fillRect(0, 0, W, H);
 
       // 2. Coordinate Graticule Grid
-      if (layers.graticuleGrid) {
+      if (DEFAULT_LAYERS.graticuleGrid) {
         const stepDeg = camera.zoom >= 4.5 ? 2 : camera.zoom >= 2.2 ? 10 : 20;
         ctx.strokeStyle = `${theme.border}77`;
         ctx.lineWidth = 0.75;
@@ -3995,7 +1380,7 @@ export default function App() {
       }
 
       // 4. Thermal Density Heatmap Layer
-      if (layers.thermalHeatmap) {
+      if (DEFAULT_LAYERS.thermalHeatmap) {
         for (const sim of simulatedIncidents) {
           const { x, y } = projectLatLonToXY(
             sim.incident.latitude,
@@ -4021,7 +1406,7 @@ export default function App() {
       }
 
       // 5. Hotspot Cluster Tessellation Polygons (<15km thermal fronts)
-      if (layers.clusterHulls) {
+      if (DEFAULT_LAYERS.clusterHulls) {
         for (const cluster of thermalClusters) {
           if (cluster.hullPoints.length < 3) continue;
           ctx.save();
@@ -4060,16 +1445,16 @@ export default function App() {
       }
 
       // 6. Plume Vector Cones (6h, 12h, 24h & Forward Sim Gaussian Plume Corridors)
-      if (layers.plumeCones) {
+      if (DEFAULT_LAYERS.plumeCones) {
         for (const sim of simulatedIncidents) {
-          const { latitude, longitude, wind_vector } = sim.incident;
+          const { latitude, longitude } = sim.incident;
           const origin = projectLatLonToXY(latitude, longitude, W, H);
           if (origin.x < -200 || origin.x > W + 200 || origin.y < -200 || origin.y > H + 200) {
             continue;
           }
 
           const isSelected = selectedSim?.incident.incident_id === sim.incident.incident_id;
-          const bearing = wind_vector.bearing_deg;
+          const bearing = getEffectiveWindBearingDeg(sim.incident);
 
           const activeReachKm = sim.activeSimCorridorKm * (camera.zoom < 2 ? 2.4 : 1.0);
           const halfSpreadDeg = isSelected ? 19 : 14;
@@ -4162,15 +1547,17 @@ export default function App() {
 
       // 7. Wind Vectors, Dynamic FRP Pulse Rings & Target Reticles
       for (const sim of simulatedIncidents) {
-        const { latitude, longitude, frp, wind_vector } = sim.incident;
+        const { latitude, longitude, frp } = sim.incident;
         const { x, y } = projectLatLonToXY(latitude, longitude, W, H);
         if (x < -80 || x > W + 80 || y < -80 || y > H + 80) continue;
 
         const isSelected = selectedSim?.incident.incident_id === sim.incident.incident_id;
 
-        if (layers.windVectors && (camera.zoom >= 2.5 || isSelected)) {
-          const rad = ((wind_vector.bearing_deg - 90) * Math.PI) / 180;
-          const vecLen = Math.min(48, 16 + wind_vector.speed_mps * 2.0);
+        if (DEFAULT_LAYERS.windVectors && (camera.zoom >= 2.5 || isSelected)) {
+          const effBearing = getEffectiveWindBearingDeg(sim.incident);
+          const effSpeed = getEffectiveWindSpeedMps(sim.incident);
+          const rad = ((effBearing - 90) * Math.PI) / 180;
+          const vecLen = Math.min(48, 16 + effSpeed * 2.0);
           const vx = x + Math.cos(rad) * vecLen;
           const vy = y + Math.sin(rad) * vecLen;
 
@@ -4182,7 +1569,7 @@ export default function App() {
           ctx.stroke();
         }
 
-        if (layers.pulseRings) {
+        if (DEFAULT_LAYERS.pulseRings) {
           const freqMultiplier = 1.0 + (frp / 350) * 1.5;
           const localPhase = (pulsePhase * freqMultiplier + (frp % 7)) % (Math.PI * 2);
           const normPulse = localPhase / (Math.PI * 2);
@@ -4242,12 +1629,18 @@ export default function App() {
     activeBuffer,
     theme,
     camera,
-    layers,
     simulatedIncidents,
     thermalClusters,
     selectedSim,
     simHourOffset,
-    projectLatLonToXY
+    projectLatLonToXY,
+    primaryTowerId,
+    secondaryTowerId,
+    primaryTower,
+    secondaryTower,
+    activePrimaryBearing,
+    secondaryBearingToTarget,
+    triangulationSolution
   ]);
 
   // Canvas Mouse Interaction Handlers
@@ -4362,8 +1755,9 @@ export default function App() {
       setIsIngestModalOpen(false);
       setIngestText('');
       setVimStatusMsg(`:IngestFIRMS -> Appended ${count} orbital thermal anomalies to buffer`);
-    } catch (err: any) {
-      setIngestionError(err?.message || 'Failed to parse FIRMS payload.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to parse FIRMS payload.';
+      setIngestionError(message);
     }
   };
 
@@ -4449,6 +1843,7 @@ export default function App() {
                 key={buf.id}
                 onClick={() => {
                   setActiveBuffer(buf.id);
+                  lookoutSound.playSquelch();
                   setVimStatusMsg(`:buffer ${buf.num} (${buf.name})`);
                 }}
                 className="h-full px-2.5 flex items-center gap-1.5 transition text-[11px] font-mono border-b-2"
@@ -4656,20 +2051,12 @@ export default function App() {
         <div className="flex items-center gap-2 shrink-0">
           <span style={{ color: theme.comment }} className="text-[10px] uppercase tracking-wider">Theater:</span>
           <div className="flex items-center rounded-[2px] border p-0.5" style={{ backgroundColor: theme.crust, borderColor: theme.border }}>
-            {[
-              { id: 'GLOBAL', label: 'Global' },
-              { id: 'CALIFORNIA', label: 'California' },
-              { id: 'MEDITERRANEAN', label: 'Med Basin' },
-              { id: 'BOREAL_CANADA', label: 'Boreal' },
-              { id: 'SE_AUSTRALIA', label: 'Australia' },
-              { id: 'AMAZON_BASIN', label: 'Amazon' },
-              { id: 'CENTRAL_AFRICA', label: 'Africa' }
-            ].map(({ id, label }) => {
+            {THEATER_BUTTONS.map(({ id, label }) => {
               const active = activeTheater === id;
               return (
                 <button
                   key={id}
-                  onClick={() => handleSelectTheater(id as TheaterRegion)}
+                  onClick={() => handleSelectTheater(id)}
                   className="px-2 py-0.5 rounded-[2px] text-[10px] transition font-medium"
                   style={{
                     backgroundColor: active ? theme.blue : 'transparent',
@@ -5309,7 +2696,11 @@ export default function App() {
                                   Triangulated Ground Fix:
                                 </div>
                                 <div style={{ color: theme.orange }} className="font-bold">
-                                  {triangulationSolution.lat.toFixed(3)}° N, {triangulationSolution.lon.toFixed(3)}° W
+                                  {formatCoordinatesHemisphere(
+                                    triangulationSolution.lat,
+                                    triangulationSolution.lon,
+                                    3
+                                  )}
                                 </div>
                                 <div style={{ color: theme.green }} className="text-[10px]">
                                   Confidence Radius: ±{triangulationSolution.errorRadiusKm} km
@@ -5830,15 +3221,15 @@ export default function App() {
                 <GaussianPlumeChart
                   profile={selectedSim.plumeProfile}
                   emissionRateGs={selectedSim.fre.pm25EmissionRateGs}
-                  windSpeedMps={selectedSim.incident.wind_vector.speed_mps}
+                  windSpeedMps={getEffectiveWindSpeedMps(selectedSim.incident)}
                   theme={theme}
                 />
 
                 {/* Wind Rose & Topographic Slope */}
                 <WindRoseCompass
-                  bearingDeg={selectedSim.incident.wind_vector.bearing_deg}
-                  speedMps={selectedSim.incident.wind_vector.speed_mps}
-                  slopeDeg={selectedSim.incident.slope_deg}
+                  bearingDeg={getEffectiveWindBearingDeg(selectedSim.incident)}
+                  speedMps={getEffectiveWindSpeedMps(selectedSim.incident)}
+                  slopeDeg={getEffectiveSlopeDeg(selectedSim.incident)}
                   theme={theme}
                 />
 
@@ -5860,7 +3251,7 @@ export default function App() {
                     <div className="flex justify-between text-[10px]">
                       <span style={{ color: theme.comment }}>containment_pct</span>
                       <span style={{ color: theme.green }}>
-                        {selectedSim.incident.estimated_containment_pct}%
+                        {selectedSim.rothermel.effectiveContainmentPct}%
                       </span>
                     </div>
                     <div
@@ -5870,7 +3261,7 @@ export default function App() {
                       <div
                         className="h-full"
                         style={{
-                          width: `${selectedSim.incident.estimated_containment_pct}%`,
+                          width: `${selectedSim.rothermel.effectiveContainmentPct}%`,
                           backgroundColor: theme.green
                         }}
                       />
