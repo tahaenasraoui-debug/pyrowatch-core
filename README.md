@@ -1,10 +1,17 @@
 # PyroWatch-Core
 
+[![CI](https://github.com/tahaenasraoui-debug/pyrowatch-core/actions/workflows/ci.yml/badge.svg)](https://github.com/tahaenasraoui-debug/pyrowatch-core/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A client-side geospatial wildfire telemetry tracker, atmospheric smoke dispersion simulator, and orbital hotspot analyzer built with a Neovim TUI aesthetic.
 
 The UI and 60fps Canvas GIS renderer live in `src/PyroWatchCore.tsx`, backed by pure, unit-tested physics, geodesy, NASA FIRMS parser, Web Audio, theme, and dataset modules under `src/lib/` (including 53 synthetic global wildfire incidents).
 
 PyroWatch-Core pairs a 60fps HTML5 Canvas GIS projection engine with physical fire modeling. It implements the Rothermel (1972) surface fire spread model, Byram's fireline intensity, Wooster's Fire Radiative Energy (FRE) integration, and a 2D Gaussian smoke plume dispersion model across NASA FIRMS (VIIRS and MODIS) satellite detection schemas.
+
+## Preview
+
+![PyroWatch-Core Neovim TUI and GIS Wildfire Telemetry Preview](assets/screenshot.png)
 
 ## Why I Made This
 
@@ -95,6 +102,8 @@ npm run preview   # serves the built app locally
 ```text
 pyrowatch-core/
 ├── .github/workflows/ci.yml
+├── assets/
+│   └── screenshot.png
 ├── public/
 ├── src/
 │   ├── lib/
