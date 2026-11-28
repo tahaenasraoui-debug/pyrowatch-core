@@ -135,6 +135,25 @@ Stack: React, TypeScript, Vite, Vitest, Tailwind CSS v4, `lucide-react`. There i
 * **Wooster, M. J., Roberts, G., Perry, G. L. W., & Kaufman, Y. J. (2005).** *Retrieval of biomass combustion rates and totals from fire radiative power observations: FRP derivation and calibration relationships between biomass consumption and fire radiative energy release.* Journal of Geophysical Research: Atmospheres.
 * **NASA FIRMS:** Fire Information for Resource Management System (VIIRS S-NPP / NOAA-20 and MODIS Terra / Aqua NRT schemas).
 
+## Contributing
+
+Contributions, bug reports, and feature suggestions are welcome. For larger changes or new features, please open an issue first to discuss the approach before writing code.
+
+1. Fork the repository and create a branch from `main` (e.g., `git checkout -b fix/short-description` or `feat/short-description`).
+2. Keep pull requests focused on a single change and follow the existing code style.
+3. Run the local checks before opening a PR:
+
+   ```bash
+   npm run lint
+   npx tsc -b --noEmit
+   npm test
+   npm run build
+   ```
+
+4. Open a Pull Request describing what changed and why (include a screenshot or GIF for UI/canvas changes, and link any related issue).
+
+When reporting bugs, please include steps to reproduce, expected vs. actual behavior, and your environment details (OS and browser/Node.js version).
+
 ## License
 
 MIT
